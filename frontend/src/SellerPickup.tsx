@@ -16,6 +16,6 @@ export default function SellerPickup({seller,onSave}:{seller:Seller;onSave:(loca
   }
   return <div className="seller-pickup">
     <div className="pickup-heading"><MapPin size={17} /><div><b>Pickup address</b><p>{seller.location.label || 'Choose an address'}</p></div>{!editing && <button className="text-button" type="button" onClick={()=>{setDraft(seller.location);setError('');setEditing(true)}}>Change address</button>}</div>
-    {editing && <div className="pickup-editor"><LocationPicker label="Seller pickup address" value={draft} onChange={setDraft} /><p className="field-hint">Applies to all your listings.</p>{error && <p role="alert" className="error-message">{error}</p>}<div className="dialog-actions"><button className="secondary" type="button" disabled={saving} onClick={()=>setEditing(false)}>Cancel address change</button><button className="primary" type="button" disabled={saving || !draft} onClick={save}>{saving?'Saving…':'Save address'}</button></div></div>}
+    {editing && <div className="pickup-editor"><LocationPicker label="Seller pickup address" value={draft} onChange={setDraft} />{error && <p role="alert" className="error-message">{error}</p>}<div className="dialog-actions"><button className="secondary" type="button" disabled={saving} onClick={()=>setEditing(false)}>Cancel address change</button><button className="primary" type="button" disabled={saving || !draft} onClick={save}>{saving?'Saving…':'Save address'}</button></div></div>}
   </div>
 }

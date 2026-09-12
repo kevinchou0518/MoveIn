@@ -41,8 +41,7 @@ export default function LocationPicker({ label, value, onChange, initialQuery = 
   return <div className="location-picker">
     <label htmlFor={id}>{label}</label>
     <div className="address-search"><input id={id} type="search" value={query} maxLength={200} placeholder="Street address, neighborhood, or city" autoComplete="off" aria-describedby={`${id}-status`} onChange={e => { version.current++; setQuery(e.target.value); setLoading(false); setResults([]); setMessage(''); onChange(null) }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void search() } }} /><button type="button" aria-label={`Search ${label.toLowerCase()}`} disabled={loading || query.trim().length < 3} onClick={search}><Search size={16} />{loading ? 'Searching…' : 'Search'}</button></div>
-    <p id={`${id}-status`} className="field-hint" role="status">{message || (value ? 'Location selected. Edit to search somewhere else.' : 'Search, then select a result to confirm your location.')}</p>
+    <p id={`${id}-status`} className="field-hint" role="status">{message}</p>
     {results.length > 0 && <ul className="address-results" aria-label={`${label} search results`}>{results.map((location, i) => <li key={`${location.lat}-${location.lng}-${i}`}><button type="button" onClick={() => choose(location)}><MapPin size={16} /><span>{location.label}</span></button></li>)}</ul>}
-    <small className="location-attribution">Search by Mapbox</small>
   </div>
 }

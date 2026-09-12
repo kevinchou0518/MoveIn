@@ -166,3 +166,7 @@
 @keyframes photo-scan { 0%,100% { background-position:0 100%; opacity:.5; } 50% { background-position:0 0; opacity:1; } }
 @keyframes analysis-appear { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
 @media(prefers-reduced-motion:reduce) { .analyze-spinner,.photo-upload .photo-analysis-scan,.analysis-status:not(:empty),.pickup-editor { animation:none; } .seller-analyze { transition:none; } }
+.buyer-address .pickup-heading { flex-wrap:wrap; }
+.buyer-address .pickup-heading > div { flex-basis:140px; }
+.buyer-address .dialog-actions { flex-wrap:wrap; }
+.location-picker .field-hint:empty { display:none; }

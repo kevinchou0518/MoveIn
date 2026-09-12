@@ -116,3 +116,24 @@ test('storage-disabled sessions keep in-memory searches usable', () => {
   try { assert.deepEqual(readSearch(saveSearch(request)), request) }
   finally { Object.defineProperty(window, 'sessionStorage', descriptor) }
 })
+
+test('buyer defaults to the profile address instead of stale cached preferences',async()=>{
+ const location={lat:40.450869,lng:-79.934052,label:'5436 Walnut Street, Pittsburgh, PA 15232'}
+ window.sessionStorage.setItem('buyer-preferences',JSON.stringify(request))
+ globalThis.fetch=async url=>String(url).endsWith('/me')?Response.json({sellers:[{id:'maya',location}]}):Response.json([])
+ render(<App/> )
+ await screen.findByText(location.label)
+ assert.equal(screen.queryByText('Oakland'),null)
+ assert.equal(screen.queryByRole('searchbox',{name:'Buyer location'}),null)
+})
+
+test('returning from profile refreshes the default buyer address',async()=>{
+ let location={lat:40.450869,lng:-79.934052,label:'5436 Walnut Street, Pittsburgh, PA 15232'}
+ globalThis.fetch=async url=>String(url).endsWith('/me')?Response.json({sellers:[{id:'maya',location}]}):Response.json([])
+ render(<App/> )
+ await screen.findByText(location.label)
+ await act(async()=>navigate('/account'))
+ location={lat:40.443708,lng:-79.949132,label:'4400 Forbes Avenue, Pittsburgh, PA 15213'}
+ await act(async()=>navigate('/buyer'))
+ await screen.findByText(location.label)
+})
