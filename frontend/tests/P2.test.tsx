@@ -11,11 +11,32 @@ const { default: BundlePage } = await import('../src/BundlePage')
 const { default: BuyerAssistant } = await import('../src/BuyerAssistant')
 const { default: PriceResearch } = await import('../src/PriceResearch')
 const { default: CategoryPicker } = await import('../src/CategoryPicker')
+const { googleMapsUrl } = await import('../src/routeLink')
 import type { Bundle, BuyerRequest } from '../src/types'
 afterEach(cleanup)
 const location = { lat: 40.44, lng: -79.94, label: 'Oakland' }
 const request: BuyerRequest = { categories: ['chair'], budget: 100, buyer_location: location, buyer_has_car: true, radius_miles: 25, ranking: 'lowest_cost' }
 const bundle: Bundle = { id: 'b1', request, listings: [{ id: 'c1', seller_id: 's1', title: 'Wooden chair', category: 'chair', description: '', price: 30, condition: 'good', condition_score: 8, item_size: 1, image_url: '', location, available: true, available_date: '2020-01-01' }], sellers: [{ id: 's1', name: 'Sam', location, can_drive: false, vehicle_type: null, vehicle_capacity: 0 }], driver: null, item_total: 30, total: 30, condition_score: 8, seller_count: 1, total_size: 1, transportation_mode: 'buyer_pickup', delivery_fee: 0, distance_miles: 1, duration_minutes: 3, final_score: 1, selection_score: 1, route: { source: 'estimated', geometry_source: 'schematic', warning: 'Estimate', distance_miles: 1, duration_minutes: 3, geometry: [[-79.94, 40.44]], stops: [{ kind: 'buyer', seller_id: null, name: 'Your place', location, listing_ids: [] }] } }
+
+test('bundle page links the ordered stops to Google Maps directions', async () => {
+  globalThis.fetch = (async () => Response.json(bundle)) as typeof fetch
+  render(<BundlePage path="/bundles/b1" onFindAnother={() => {}} />)
+  const link = await screen.findByRole('link', { name: /Open in Google Maps/ })
+  assert.equal(link.getAttribute('target'), '_blank')
+  assert.equal(link.getAttribute('rel'), 'noopener noreferrer')
+  assert.equal(link.getAttribute('href'), 'https://www.google.com/maps/search/?api=1&query=40.440000,-79.940000')
+})
+
+test('google maps url uses first stop as origin, last as destination, and sellers as waypoints', () => {
+  const stop = (kind: 'buyer' | 'seller', lat: number, lng: number) => ({ kind, seller_id: kind === 'seller' ? 's' : null, name: kind, location: { lat, lng }, listing_ids: [] })
+  const base = { source: 'estimated' as const, geometry_source: 'schematic' as const, warning: null, distance_miles: 1, duration_minutes: 1, geometry: [] }
+  const selfPickup = { ...base, stops: [stop('buyer', 40.44, -79.94), stop('seller', 40.45, -79.93), stop('seller', 40.46, -79.92), stop('buyer', 40.44, -79.94)] }
+  assert.equal(googleMapsUrl(selfPickup), 'https://www.google.com/maps/dir/?api=1&origin=40.440000%2C-79.940000&destination=40.440000%2C-79.940000&travelmode=driving&waypoints=40.450000%2C-79.930000%7C40.460000%2C-79.920000')
+  const delivery = { ...base, stops: [stop('seller', 40.45, -79.93), stop('seller', 40.46, -79.92), stop('buyer', 40.44, -79.94)] }
+  assert.equal(googleMapsUrl(delivery), 'https://www.google.com/maps/dir/?api=1&origin=40.450000%2C-79.930000&destination=40.440000%2C-79.940000&travelmode=driving&waypoints=40.460000%2C-79.920000')
+  assert.equal(googleMapsUrl({ ...base, stops: [stop('seller', 40.45, -79.93), stop('buyer', 40.44, -79.94)] }), 'https://www.google.com/maps/dir/?api=1&origin=40.450000%2C-79.930000&destination=40.440000%2C-79.940000&travelmode=driving')
+  assert.equal(googleMapsUrl({ ...base, stops: [] }), null)
+})
 
 test('cancel sends no checkout; repeated confirmation submits once and navigates to receipt', async () => {
   let posts = 0, finish: (r: Response) => void = () => {}

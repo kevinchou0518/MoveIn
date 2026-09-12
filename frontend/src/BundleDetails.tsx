@@ -3,7 +3,12 @@ import { ArrowRight, CarFront, Clock3, PackageCheck, Route as RouteIcon, Sparkle
 import { money } from './types'
 import type { Bundle, Order, Category } from './types'
 import { categoryIcon, categoryLabel } from './catalog'
+import { googleMapsUrl } from './routeLink'
 const RouteMap=lazy(()=>import('./RouteMap'))
+function MapsLink({ route }: { route: Bundle['route'] }) {
+  const url = googleMapsUrl(route)
+  return url ? <a className="map-link" href={url} target="_blank" rel="noopener noreferrer">Open in Google Maps ↗</a> : null
+}
 function ProductImage({ category, src, title }: { category: Category; src?: string; title: string }) {
   return <img src={src || categoryIcon(category)} alt={title} loading="lazy" onError={e => { e.currentTarget.onerror = null; e.currentTarget.src = categoryIcon(category) }} />
 }
@@ -25,7 +30,7 @@ export function BundleDetails({ bundle, onCheckout, pending, error, order, onSwa
   return <section className="bundle-detail" aria-labelledby="detail-title">
     <div className="section-heading"><div><p className="eyebrow">THE WHOLE PLAN</p><h2 id="detail-title">Good finds. One simple route.</h2></div><span className="pill"><PackageCheck size={14} /> {bundle.driver ? 'Delivery included in total' : 'Self-pickup'}</span></div>
     <div className="detail-grid"><div><Suspense fallback={<div className="route-map loading-map">Loading route…</div>}><RouteMap route={bundle.route} /></Suspense>
-      <p className="map-note">{bundle.route.warning || 'Driving route from Mapbox.'} Travel time excludes loading.</p>
+      <p className="map-note">{bundle.route.warning || 'Driving route from Mapbox.'} Travel time excludes loading.<MapsLink route={bundle.route} /></p>
       <div className="route-stats"><span><RouteIcon size={18} /><b>{bundle.distance_miles} mi</b> total distance</span><span><Clock3 size={18} /><b>{Math.ceil(bundle.duration_minutes)} min</b> driving</span><span><Users size={18} /><b>{bundle.seller_count}</b> pickup {bundle.seller_count === 1 ? 'stop' : 'stops'}</span></div>
       <div className="included-items"><h3>Your furniture</h3>{bundle.listings.map(i => <div className="included-item" key={i.id}><div className="item-thumb"><ProductImage category={i.category} src={i.image_url} title={i.title} /></div><div><b>{i.title}</b><span>{bundle.sellers.find(s => s.id === i.seller_id)?.name} · {i.condition_score}/10 · {i.item_size} size units</span></div><strong>{money(i.price)}</strong>{onSwap && !order && <button className="text-button" onClick={()=>onSwap(i.id)}>Swap item<span className="sr-only"> {i.title}</span></button>}</div>)}</div>
     </div><div className="route-plan">

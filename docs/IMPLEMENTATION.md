@@ -89,7 +89,7 @@ At least six named fictional Pittsburgh sellers across Oakland, Shadyside, Bloom
 
 ## Critical path
 
-The optimizer's hard constraints and one successful API response come first. Expand and test top-three routing next. Connect the buyer flow before optional AI. Credentials, external image hosts, maps, and MongoDB must not block the seed demo. A configured Mapbox response is road-based; a fallback is labeled an estimate and never passed off as road navigation.
+The optimizer's hard constraints and one successful API response come first. Expand and test top-three routing next. Connect the buyer flow before optional AI. Credentials, external image hosts, maps, and MongoDB must not block the seed demo. A configured Mapbox response is road-based; a fallback is labeled an estimate and never passed off as road navigation. Navigation itself is delegated: `BundleDetails` renders an "Open in Google Maps" directions link built by `frontend/src/routeLink.ts` from the ordered route stops (first stop as origin, last as destination, sellers in between as waypoints, driving mode), so the bundle page and the buyer/driver order pages all link to the same route without any key.
 
 ## Technical references
 
