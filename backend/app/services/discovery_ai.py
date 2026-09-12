@@ -14,7 +14,11 @@ class ParsedText(Model):
     """Strict schema the model fills in; coordinates are added by geocoding afterwards."""
     categories: list[Category] | None = Field(max_length=6)
     budget: float | None = Field(gt=0,le=100000)
-    buyer_has_car: bool | None
+    buyer_has_car: bool | None = Field(description=(
+        'Transportation choice: false means seller delivery is needed; true means buyer pickup. '
+        'An explicit delivery or pickup request takes precedence over car ownership. '
+        'Use null when transportation is unmentioned or unresolved.'
+    ))
     location_text: str | None = Field(max_length=200)
     ranking: Ranking | None
     explanations: list[str] = Field(max_length=10)
@@ -69,7 +73,17 @@ class DiscoveryAI:
         except (httpx.HTTPError,ValueError,TypeError,KeyError,AttributeError): raise HTTPException(502,'AI could not provide reliable results. Retry or continue manually.') from None
 
     def parse(self,payload,categories,geocoder=None):
-        parsed,_=self.request('Extract only explicitly stated buyer requirements. Use catalog IDs. Do not invent missing values; use null. Budget is furniture-only; flag ambiguous total budgets. Map stated ranking priorities to balanced/lowest_cost/best_condition/fastest_trip. Unknown categories, quantities greater than one, unsupported preferences and ambiguity must appear in explanations, written as short plain-language notes for the buyer. Never add an explanation for a field the buyer simply did not mention. Do not create categories.',{'text':payload.text,'catalog':categories},ParsedText)
+        parsed,_=self.request('Extract only explicitly stated buyer requirements. '
+            'Seller delivery and buyer self-pickup are supported transportation choices, represented by buyer_has_car. '
+            'Set buyer_has_car=false for requests such as "need delivery", "need deliver", "bring it to me", '
+            '"I need it delivered", or "I do not have a car". '
+            'Set buyer_has_car=true for "I will pick it up", "self-pickup", or "I have a car". '
+            'An explicit transportation choice takes precedence over car ownership: '
+            '"I have a car but need delivery" means false; "I do not own a car but will arrange pickup" means true. '
+            'Respect negation: "I do not need delivery; I will pick it up" means true. '
+            'If transportation is unmentioned, or the choice is ambiguous or contradictory, use null; '
+            'explain only a stated ambiguity or conflict. Never label delivery or self-pickup as unsupported. '
+            'Use catalog IDs. Do not invent missing values; use null. Budget is furniture-only; flag ambiguous total budgets. Map stated ranking priorities to balanced/lowest_cost/best_condition/fastest_trip. Unknown categories, quantities greater than one, unsupported preferences and ambiguity must appear in explanations, written as short plain-language notes for the buyer. Never add an explanation for a field the buyer simply did not mention. Do not create categories.',{'text':payload.text,'catalog':categories},ParsedText)
         draft=BuyerDraft(**parsed.model_dump())
         # Fields the buyer did not mention stay unchanged in the form, so notes about them are noise.
         draft.explanations=[x for x in draft.explanations if not (MISSING.search(x) and FIELD.search(x))]

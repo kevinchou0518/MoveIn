@@ -150,6 +150,38 @@ def test_buyer_parser_preserves_missing_fields_and_filters_unknowns():
     assert draft.explanations == ['Some requested categories are not available in the catalog.']
 
 
+@pytest.mark.parametrize(('text', 'transportation'), [
+    ('tv and stand, under 300, need delivery', False),
+    ('tv and stand, under 300, I will pick it up', True),
+    ('tv and stand, under 300', None),
+])
+def test_buyer_parse_transportation_contract_and_endpoint(api, text, transportation):
+    # Verify the provider receives the mapping and the endpoint preserves false/true/null.
+    # Mocked output checks integration, not the live model's interpretation accuracy.
+    client, _ = api
+    payload = {'categories': ['tv', 'tv_stand'], 'budget': 300,
+               'buyer_has_car': transportation, 'location_text': None,
+               'ranking': None, 'explanations': []}
+    def handler(request):
+        body = json.loads(request.content)
+        prompt = body['input'][0]['content']
+        assert 'Set buyer_has_car=false' in prompt and '"need delivery"' in prompt
+        assert '"need deliver"' in prompt and 'Set buyer_has_car=true' in prompt
+        assert 'takes precedence over car ownership' in prompt
+        assert 'Respect negation' in prompt
+        assert 'If transportation is unmentioned' in prompt
+        assert 'Never label delivery or self-pickup as unsupported.' in prompt
+        field = body['text']['format']['schema']['properties']['buyer_has_car']
+        assert 'false means seller delivery' in field['description']
+        assert 'true means buyer pickup' in field['description']
+        assert json.loads(body['input'][1]['content'])['text'] == text
+        return ai_response(payload)
+    client.app.state.discovery = DiscoveryAI('test', transport=httpx.MockTransport(handler))
+    response = client.post('/buyer/parse', json={'text': text})
+    assert response.status_code == 200, response.text
+    assert response.json() == {**payload, 'buyer_location': None}
+
+
 def test_buyer_parser_drops_notes_about_unmentioned_fields():
     notes = ['Unknown buyer_has_car', 'Unknown ranking preference', 'Budget not specified', 'quantities not specified', 'Location unclear',
              'Quantity greater than one requested for chair', 'monitor is not in the catalog', 'Budget may include delivery']

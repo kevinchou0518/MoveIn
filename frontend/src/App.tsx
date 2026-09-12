@@ -9,7 +9,7 @@ import { BundleCard } from './BundleDetails'
 import BundlePage from './BundlePage'
 import BuyerAssistant from './BuyerAssistant'
 import { usePath, navigate } from './navigation'
-import { useCatalog, categoryIcon } from './catalog'
+import BuyerCategorySelect from './BuyerCategorySelect'
 import { readPreferences, readSearch, saveSearch } from './searchSession'
 import { LoginRequired, useSession } from './Auth'
 import { OrderHistory, OrderPage } from './Orders'
@@ -22,9 +22,6 @@ export default function App() {
   const path=usePath()
   const mode=path.startsWith('/seller')?'seller':'buyer'
   const activeSection = path.startsWith('/account') ? 'profile' : path === '/buyer/orders' || path.startsWith('/orders/') ? 'orders' : mode === 'seller' ? 'seller' : 'buyer'
-  const {catalog}=useCatalog()
-  const [categoryQuery,setCategoryQuery]=useState('')
-  const [moreCategories,setMoreCategories]=useState(false)
   const initial=useRef(readPreferences()).current
   const [selected, setSelected] = useState<Category[]>(initial.categories || INITIAL_CATEGORIES)
   const [budget, setBudget] = useState(String(initial.budget || '300'))
@@ -75,7 +72,7 @@ export default function App() {
       <div className="workspace-grid"><aside className="requirements"><form onSubmit={generate}>
         <div className="form-heading"><h2>Make yourself at home.</h2><SlidersHorizontal size={19} /></div><p className="muted">A few details. A whole room sorted.</p>
         <BuyerAssistant onApply={draft=>{if(draft.categories)setSelected(draft.categories);if(draft.budget!=null)setBudget(String(draft.budget));if(draft.buyer_has_car!=null)setHasCar(draft.buyer_has_car);if(draft.ranking)setRanking(draft.ranking);if(draft.buyer_location){setBuyerLocation(draft.buyer_location);setLocationDraft('')}else if(draft.location_text){setBuyerLocation(null);setLocationDraft(draft.location_text)}}} />
-        <fieldset className="category-field"><legend><span className="step-number">01</span> What do you need?</legend><div className="category-grid">{catalog.filter(c=>selected.includes(c.id) || (!moreCategories ? INITIAL_CATEGORIES.includes(c.id) || ['sofa','table'].includes(c.id) : c.name.toLowerCase().includes(categoryQuery.toLowerCase()))).map(({id:c,name}) => <button key={c} className={`category-choice ${selected.includes(c) ? 'selected' : ''}`} type="button" aria-pressed={selected.includes(c)} onClick={() => setSelected(prev => prev.includes(c) ? prev.filter(x => x !== c) : prev.length<6?[...prev, c]:prev)}><img src={categoryIcon(c)} alt="" /><span>{name}</span>{selected.includes(c) && <Check className="category-check" size={12} />}</button>)}</div><button type="button" className="text-button" onClick={()=>setMoreCategories(v=>!v)}>More categories</button>{moreCategories && <label>Search categories<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} /></label>}<p className="field-hint">Choose up to six categories.</p></fieldset>
+        <BuyerCategorySelect value={selected} onChange={setSelected} />
         <fieldset><legend><span className="step-number">02</span> Your furniture budget</legend><div className="budget-input"><span>$</span><input aria-label="Furniture budget" type="number" min="1" max="100000" step="0.01" value={budget} onChange={e => setBudget(e.target.value)} required /><span>USD</span></div><p className="field-hint">Delivery is calculated separately.</p></fieldset>
         <fieldset><legend><span className="step-number">03</span> Where’s your new place?</legend><LocationPicker key={locationDraft} initialQuery={locationDraft} label="Buyer location" value={buyerLocation} onChange={setBuyerLocation} /></fieldset>
         <fieldset><legend><span className="step-number">04</span> How will it get there?</legend><div className="transport-toggle"><button type="button" className={!hasCar ? 'selected' : ''} aria-pressed={!hasCar} onClick={() => setHasCar(false)}><Truck size={18} /><span>Bring it to me<small>I don’t have a car</small></span>{!hasCar && <Check size={14} />}</button><button type="button" className={hasCar ? 'selected' : ''} aria-pressed={hasCar} onClick={() => setHasCar(true)}><CarFront size={18} /><span>I’ll pick it up<small>I have a car</small></span>{hasCar && <Check size={14} />}</button></div>{hasCar && <p className="field-hint">For this demo, you arrange a vehicle that fits all selected items.</p>}</fieldset>
