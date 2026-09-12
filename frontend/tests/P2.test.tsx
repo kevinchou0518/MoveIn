@@ -79,14 +79,16 @@ test('buyer AI auto-applies parsed fields including the geocoded location', asyn
   const draft = { categories: ['chair'], budget: 100, buyer_has_car: false, location_text: 'Oakland', buyer_location: { lat: 40.443, lng: -79.943, label: 'Oakland, Pittsburgh' }, ranking: null, explanations: ['Quantities are not supported.'] }
   globalThis.fetch = (async () => Response.json(draft)) as typeof fetch
   render(<BuyerAssistant onApply={d => { applied.push(d) }} />)
-  fireEvent.click(screen.getByText('Describe what you need'))
+  assert.ok(screen.getByRole('heading', { name: 'Describe what you need' }))
+  assert.equal(screen.getByLabelText('Your shopping request').closest('details'), null)
   fireEvent.change(screen.getByLabelText('Your shopping request'), { target: { value: 'Chair for $100 in Oakland' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Fill in my requirements' }))
-  await screen.findByText('Applied to the form below')
+  fireEvent.click(screen.getByRole('button', { name: 'Auto-fill preferences' }))
+  await screen.findByText('Updated categories, budget, transportation and location.')
   assert.deepEqual(applied, [draft])
   assert.equal(screen.queryByRole('checkbox'), null)
   assert.equal(screen.queryByRole('button', { name: 'Apply selected requirements' }), null)
-  assert.ok(screen.getByText('Oakland, Pittsburgh'))
+  assert.equal(screen.queryByText('Oakland, Pittsburgh'), null)
+  fireEvent.click(screen.getByText('1 note to review'))
   assert.ok(screen.getByText('Quantities are not supported.'))
 })
 

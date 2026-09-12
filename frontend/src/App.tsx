@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Armchair, CarFront, Check, ChevronDown, Leaf, Plus, Route as RouteIcon, SlidersHorizontal, Sofa, Truck, Tv } from 'lucide-react'
+import { ArrowRight, Armchair, CarFront, Check, ChevronDown, Leaf, Plus, Route as RouteIcon, Sofa, Truck, Tv } from 'lucide-react'
 import { api, post } from './api'
 import { rankingNames } from './types'
 import type { BundleResponse, Category, Location, BuyerRequest, Ranking } from './types'
@@ -9,7 +9,7 @@ import { BundleCard } from './BundleDetails'
 import BundlePage from './BundlePage'
 import BuyerAssistant from './BuyerAssistant'
 import { usePath, navigate } from './navigation'
-import { useCatalog, categoryIcon } from './catalog'
+import BuyerCategorySelect from './BuyerCategorySelect'
 import { readPreferences, readSearch, saveSearch } from './searchSession'
 import { LoginRequired, useSession } from './Auth'
 import { OrderHistory, OrderPage } from './Orders'
@@ -22,9 +22,6 @@ export default function App() {
   const path=usePath()
   const mode=path.startsWith('/seller')?'seller':'buyer'
   const activeSection = path.startsWith('/account') ? 'profile' : path === '/buyer/orders' || path.startsWith('/orders/') ? 'orders' : mode === 'seller' ? 'seller' : 'buyer'
-  const {catalog}=useCatalog()
-  const [categoryQuery,setCategoryQuery]=useState('')
-  const [moreCategories,setMoreCategories]=useState(false)
   const initial=useRef(readPreferences()).current
   const [selected, setSelected] = useState<Category[]>(initial.categories || INITIAL_CATEGORIES)
   const [budget, setBudget] = useState(String(initial.budget || '300'))
@@ -71,11 +68,10 @@ export default function App() {
   return <>
     <header className="site-header"><a className="brand" href="/" aria-label="SnackOverflow home"><span className="brand-symbol"><Sofa size={23} strokeWidth={1.8} /></span>SnackOverflow<span className="brand-dot">.</span></a><nav className="mode-switch" aria-label="Marketplace navigation">{[{id:'buyer',label:'Find furniture',url:'/buyer'},{id:'orders',label:'My orders',url:'/buyer/orders'},{id:'seller',label:'Sell furniture',url:'/seller'},{id:'profile',label:'Profile',url:'/account'}].map(item=><button key={item.id} onClick={()=>navigate(item.url)} aria-current={activeSection===item.id?'page':undefined} aria-pressed={activeSection===item.id} className={activeSection===item.id?'active':''}>{item.label}</button>)}</nav></header>
     {!session.authenticated && (isResults || path.startsWith('/bundles/') || path.startsWith('/orders/') || mode === 'seller' || path === '/buyer/orders' || path.startsWith('/account') || path.startsWith('/auth/')) ? <LoginRequired><></></LoginRequired> : path.startsWith('/account') ? <AccountPage /> : path.startsWith('/orders/') || /^\/seller\/[^/]+\/orders\/[^/]+/.test(path) ? <OrderPage key={path} path={path} onFindAnother={runSearch} /> : path === '/buyer/orders' ? <main className="page-shell"><OrderHistory /></main> : path.startsWith('/bundles/') ? <BundlePage key={path} path={path} onFindAnother={runSearch} /> : mode === 'seller' ? <Suspense fallback={<main className="page-shell"><p role="status">Loading seller dashboard…</p></main>}><SellerView key={path} /></Suspense> : <main className="page-shell page-transition">
-      <section className="hero"><div><p className="eyebrow"><span className="little-star">✳</span> A FRESH START, SECONDHAND.</p><h1 tabIndex={-1}>Your new place.<br /><em>Already coming together.</em></h1><p className="hero-copy">Tell us what you need. We’ll find the furniture,<br className="desktop-br" /> fit your budget, and work out the pickup.</p></div><div className="hero-note"><span className="circular-leaf"><Leaf size={22} /></span><span>Less searching.<br />More settling in.</span><svg width="72" height="51" viewBox="0 0 72 51" aria-hidden="true"><path d="M7 5C55 1 77 33 34 41m0 0 11-12m-11 12 17 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg></div></section>
+      <header className="buyer-page-heading"><h1 tabIndex={-1}>Find furniture</h1></header>
       <div className="workspace-grid"><aside className="requirements"><form onSubmit={generate}>
-        <div className="form-heading"><h2>Make yourself at home.</h2><SlidersHorizontal size={19} /></div><p className="muted">A few details. A whole room sorted.</p>
         <BuyerAssistant onApply={draft=>{if(draft.categories)setSelected(draft.categories);if(draft.budget!=null)setBudget(String(draft.budget));if(draft.buyer_has_car!=null)setHasCar(draft.buyer_has_car);if(draft.ranking)setRanking(draft.ranking);if(draft.buyer_location){setBuyerLocation(draft.buyer_location);setLocationDraft('')}else if(draft.location_text){setBuyerLocation(null);setLocationDraft(draft.location_text)}}} />
-        <fieldset className="category-field"><legend><span className="step-number">01</span> What do you need?</legend><div className="category-grid">{catalog.filter(c=>selected.includes(c.id) || (!moreCategories ? INITIAL_CATEGORIES.includes(c.id) || ['sofa','table'].includes(c.id) : c.name.toLowerCase().includes(categoryQuery.toLowerCase()))).map(({id:c,name}) => <button key={c} className={`category-choice ${selected.includes(c) ? 'selected' : ''}`} type="button" aria-pressed={selected.includes(c)} onClick={() => setSelected(prev => prev.includes(c) ? prev.filter(x => x !== c) : prev.length<6?[...prev, c]:prev)}><img src={categoryIcon(c)} alt="" /><span>{name}</span>{selected.includes(c) && <Check className="category-check" size={12} />}</button>)}</div><button type="button" className="text-button" onClick={()=>setMoreCategories(v=>!v)}>More categories</button>{moreCategories && <label>Search categories<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} /></label>}<p className="field-hint">Choose up to six categories.</p></fieldset>
+        <BuyerCategorySelect value={selected} onChange={setSelected} />
         <fieldset><legend><span className="step-number">02</span> Your furniture budget</legend><div className="budget-input"><span>$</span><input aria-label="Furniture budget" type="number" min="1" max="100000" step="0.01" value={budget} onChange={e => setBudget(e.target.value)} required /><span>USD</span></div><p className="field-hint">Delivery is calculated separately.</p></fieldset>
         <fieldset><legend><span className="step-number">03</span> Where’s your new place?</legend><LocationPicker key={locationDraft} initialQuery={locationDraft} label="Buyer location" value={buyerLocation} onChange={setBuyerLocation} /></fieldset>
         <fieldset><legend><span className="step-number">04</span> How will it get there?</legend><div className="transport-toggle"><button type="button" className={!hasCar ? 'selected' : ''} aria-pressed={!hasCar} onClick={() => setHasCar(false)}><Truck size={18} /><span>Bring it to me<small>I don’t have a car</small></span>{!hasCar && <Check size={14} />}</button><button type="button" className={hasCar ? 'selected' : ''} aria-pressed={hasCar} onClick={() => setHasCar(true)}><CarFront size={18} /><span>I’ll pick it up<small>I have a car</small></span>{hasCar && <Check size={14} />}</button></div>{hasCar && <p className="field-hint">For this demo, you arrange a vehicle that fits all selected items.</p>}</fieldset>
