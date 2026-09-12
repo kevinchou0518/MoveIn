@@ -1,0 +1,17 @@
+**/.env
+**/.env.*
+.git
+.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/*.tsbuildinfo
+backend/data
+backend/uploads
+furniture-photos
+artifacts
+output
+presentation
+.agents
+.codex

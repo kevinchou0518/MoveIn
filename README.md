@@ -116,3 +116,11 @@ Original files in `furniture-photos/` remain local because they can contain GPS 
 Buyers and sellers can type a street address, neighborhood, or city, click **Search**, and select the matching address. Coordinates are resolved automatically. Editing the text clears the confirmed location; select a new result before continuing. Searches use server-side Mapbox Geocoding v6 with permanent results because locations are saved in profiles and orders; the Mapbox account must support permanent geocoding.
 
 Atlas requires a database connection URI, not an Atlas management API key. The configured Atlas connection and isolated persistence/checkout tests now pass. The app runs with MongoDB; existing local JSON history remains on disk and is not automatically migrated.
+
+## Vultr deployment
+
+Docker Compose deployment with Caddy, persistent photos/data, and optional Atlas is documented in [docs/VULTR.md](docs/VULTR.md).
+
+## Railway deployment
+
+For a managed deployment, use [docs/RAILWAY.md](docs/RAILWAY.md): one service, one `/data` Volume, optional Atlas, and a Railway HTTPS domain.
