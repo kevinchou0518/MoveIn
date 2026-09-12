@@ -12,4 +12,15 @@ PHOTO_LISTINGS = {
 
 def photo_fields(listing_id):
     _, _, title, description = PHOTO_LISTINGS[listing_id]
-    return {'title': title, 'description': 'Fictional demo listing using a supplied representative photo. '+description+' Price, condition score, size units and seller are demo values; inspect before purchase.', 'image_url': f'/images/demo/{listing_id}.jpg'}
+    return {'title': title, 'description': 'Fictional demo listing using a supplied representative photo. '+description+' Price, condition score, size units and seller are demo values; inspect before purchase.', 'image_url': f'/uploads/demo/{listing_id}.jpg'}
+
+
+def install_demo_photos(uploads):
+    """Materialize committed seed assets in the same storage used by uploads."""
+    from pathlib import Path
+    import shutil
+    source = Path(__file__).resolve().parents[1] / 'fixtures/photos'
+    destination = Path(uploads) / 'demo'
+    destination.mkdir(parents=True, exist_ok=True)
+    for listing_id in PHOTO_LISTINGS:
+        shutil.copyfile(source / f'{listing_id}.jpg', destination / f'{listing_id}.jpg')

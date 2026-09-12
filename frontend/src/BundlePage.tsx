@@ -4,6 +4,7 @@ import type { Bundle, BundleResponse, BuyerRequest, Order } from './types'
 import { money } from './types'
 import { BundleDetails } from './BundleDetails'
 import { navigate, backToResults } from './navigation'
+import { OrderPage } from './Orders'
 
 export function ConfirmationDialog({bundle,pending,error,onCancel,onConfirm,onRefresh}:{bundle:Bundle;pending:boolean;error:string;onCancel:()=>void;onConfirm:()=>void;onRefresh?:()=>void}) {
   const ref=useRef<HTMLDialogElement>(null)
@@ -12,20 +13,28 @@ export function ConfirmationDialog({bundle,pending,error,onCancel,onConfirm,onRe
 }
 
 export default function BundlePage({path,onFindAnother}:{path:string;onFindAnother:(request:BuyerRequest)=>void}) {
-  const isOrder=path.startsWith('/orders/'),id=path.split('/')[2]?.split('?')[0]
-  const [bundle,setBundle]=useState<Bundle|null>(null),[order,setOrder]=useState<Order|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[confirm,setConfirm]=useState(false),[pending,setPending]=useState(false),[status,setStatus]=useState(0)
+  return path.startsWith('/orders/') ? <OrderPage path={path} onFindAnother={onFindAnother} /> : <BundleReview key={path} path={path} onFindAnother={onFindAnother} />
+}
+
+function BundleReview({path,onFindAnother}:{path:string;onFindAnother:(request:BuyerRequest)=>void}) {
+  const id=path.split('/')[2]?.split('?')[0]
+  const [bundle,setBundle]=useState<Bundle|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[confirm,setConfirm]=useState(false),[pending,setPending]=useState(false),[status,setStatus]=useState(0)
   const [swaps,setSwaps]=useState<BundleResponse|null>(null),[swapPending,setSwapPending]=useState(false)
   const alive=useRef(true),submitting=useRef(false)
-  useEffect(()=>{alive.current=true;api<Bundle|Order>(`/${isOrder?'orders':'bundles'}/${encodeURIComponent(id||'')}`).then(data=>{if(!alive.current)return;if(isOrder){setOrder(data as Order);setBundle((data as Order).bundle)}else setBundle(data as Bundle)}).catch(e=>{if(alive.current)setError(e.message)}).finally(()=>{if(alive.current)setLoading(false)});return()=>{alive.current=false}},[id,isOrder])
+  useEffect(()=>{
+    let active=true; alive.current=true
+    api<Bundle>(`/bundles/${encodeURIComponent(id||'')}`).then(data=>{if(active)setBundle(data)}).catch(e=>{if(active)setError(e.message)}).finally(()=>{if(active)setLoading(false)})
+    return()=>{active=false;alive.current=false}
+  },[id])
   useEffect(()=>{if(!loading)document.querySelector<HTMLElement>('main h1')?.focus()},[loading])
   function fresh(){if(bundle?.request)onFindAnother(bundle.request);else navigate('/buyer')}
   async function checkout(){if(!bundle||submitting.current)return;submitting.current=true;setPending(true);setError('');setStatus(0);try{const result=await post<Order>(`/bundles/${bundle.id}/checkout`);if(alive.current)navigate(`/orders/${result.id}`,true)}catch(e){if(alive.current){setError((e as Error).message);setStatus(e instanceof ApiError?e.status:0)}}finally{submitting.current=false;if(alive.current)setPending(false)}}
   async function swap(item:string){if(!bundle)return;setSwapPending(true);setError('');setSwaps(null);try{const result=await post<BundleResponse>(`/bundles/${bundle.id}/alternatives`,{listing_id:item});if(alive.current)setSwaps(result)}catch(e){if(alive.current)setError((e as Error).message)}finally{if(alive.current)setSwapPending(false)}}
   if(loading)return <main className="page-shell"><p role="status">Loading your plan…</p></main>
   if(!bundle)return <main className="page-shell"><h1 tabIndex={-1}>This plan is unavailable.</h1><p role="alert">{error}</p><button className="primary" onClick={()=>navigate('/buyer')}>Start a fresh search</button></main>
-  return <main className="page-shell page-transition"><div className="page-navigation"><button className="text-button" onClick={()=>backToResults(bundle.request)}>← Back to results</button></div>{order?<section className="reservation-success"><p className="eyebrow">ALL SET</p><h1 tabIndex={-1}>Your bundle is reserved.</h1><p>Reservation {order.id.slice(0,8)} · {money(order.bundle.total)} total</p><p>{bundle.driver?`${bundle.driver.name} has your delivery plan.`:'Your self-pickup plan is ready below.'}</p><div className="dialog-actions"><button className="primary" onClick={fresh}>Find another bundle</button><button className="secondary" onClick={()=>bundle.driver?navigate(`/seller?driver=${bundle.driver.id}&tab=deliveries`):document.getElementById('reservation-plan')?.scrollIntoView({behavior:'smooth'})}>View {bundle.driver?'delivery':'pickup'} plan</button></div></section>:<><h1 tabIndex={-1}>Review your bundle</h1><p className="muted">Check every item, compare swaps, and review the route before reserving.</p></>}
+  return <main className="page-shell page-transition"><div className="page-navigation"><button className="text-button" onClick={()=>backToResults(bundle.request)}>← Back to results</button></div><h1 tabIndex={-1}>Review your bundle</h1><p className="muted">Check every item, compare swaps, and review the route before reserving.</p>
     {error&&!confirm&&<p role="alert" className="error-message">{error} <button className="text-button" onClick={fresh}>Refresh bundle options</button></p>}
-    {bundle.order_id&&!order?<section className="ai-panel"><h2>This bundle is already reserved.</h2><button className="primary" onClick={()=>navigate(`/orders/${bundle.order_id}`)}>View reservation</button></section>:<div id="reservation-plan"><BundleDetails bundle={bundle} order={order} pending={pending} error="" onCheckout={()=>{setError('');setStatus(0);setConfirm(true)}} onSwap={!order&&!swapPending?swap:undefined}/></div>}
+    {bundle.order_id?<section className="ai-panel"><h2>This bundle has an existing order.</h2><button className="primary" onClick={()=>navigate(`/orders/${bundle.order_id}`)}>View reservation</button></section>:<BundleDetails bundle={bundle} order={null} pending={pending} error="" onCheckout={()=>{setError('');setStatus(0);setConfirm(true)}} onSwap={!swapPending?swap:undefined}/>}
     {swapPending&&<p role="status">Checking replacements, drivers, and routes…</p>}
     {swaps&&<section className="swap-panel"><h2>Replacement options</h2><p>{swaps.message}</p><div className="swap-grid">{swaps.bundles.map(b=>{const changed=b.listings.find(i=>!bundle.listings.some(old=>old.id===i.id));return <article key={b.id}><h3>{changed?.title}</h3>{changed?.image_url&&<img src={changed.image_url} alt={changed.title}/>}<p>Item: {money(changed?.price||0)} · Total: {money(b.total)}</p><p>{(b.total_difference||0)>=0?'+':'−'}{money(Math.abs(b.total_difference||0))} total change</p><p>{b.driver?`Driver: ${b.driver.name}`:'Self-pickup'} · {Math.ceil(b.duration_minutes)} min · {b.distance_miles} miles</p><button className="secondary" onClick={()=>navigate(`/bundles/${b.id}`)}>Use this replacement</button></article>})}</div></section>}
     {confirm&&<ConfirmationDialog bundle={bundle} pending={pending} error={error} onCancel={()=>setConfirm(false)} onConfirm={checkout} onRefresh={[404,409,410].includes(status)?()=>{setConfirm(false);fresh()}:undefined}/>}</main>

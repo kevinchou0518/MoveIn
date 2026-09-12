@@ -5,7 +5,7 @@ from PIL import Image
 import pytest
 from fastapi.testclient import TestClient
 from app.db.store import LocalStore
-from app.main import create_app
+from support import create_app
 from app.schemas import utcnow
 from app.services.route_optimizer import MapProvider
 

@@ -38,6 +38,21 @@ def make_order(bundle):
 class LocalStore:
     kind = 'local_demo'
 
+    def atomic(self, operation):
+        with self.lock:
+            previous = deepcopy(self.data)
+            try:
+                result = operation(self.data)
+                self._save()
+                return deepcopy(result)
+            except Exception:
+                self.data = previous
+                raise
+
+    def snapshot(self):
+        with self.lock:
+            return deepcopy(self.data)
+
     def __init__(self, path: Path):
         self.path = path
         self.lock = RLock()
@@ -150,13 +165,38 @@ class LocalStore:
 class MongoStore:
     kind = 'mongodb'
 
+    collections = ('sellers', 'listings', 'bundles', 'orders', 'categories', 'accounts', 'uploads')
+
+    def snapshot(self, session=None):
+        return {name: {r['id']: r for r in self.db[name].find({}, {'_id': 0}, session=session)} for name in self.collections}
+
+    def atomic(self, operation):
+        # Serialize management writes for this bounded demo. This also prevents
+        # write skew between a seller logistics edit and an inventory checkout.
+        def transaction(session):
+            self.db.workflow_lock.update_one({'id': 'management'}, {'$inc': {'revision': 1}}, session=session)
+            before = self.snapshot(session)
+            after = deepcopy(before)
+            result = operation(after)
+            for name in self.collections:
+                for rid, record in after.get(name, {}).items():
+                    if record != before.get(name, {}).get(rid):
+                        self.db[name].replace_one({'id': rid}, record, upsert=True, session=session)
+            return result
+        with self.client.start_session() as session:
+            return session.with_transaction(transaction)
+
     def __init__(self, uri: str, database: str):
         from pymongo import MongoClient
         self.client = MongoClient(uri, serverSelectionTimeoutMS=5000)
         self.client.admin.command('ping')
         self.db = self.client[database]
-        for name in ('sellers', 'listings', 'bundles', 'orders', 'categories'):
+        for name in self.collections:
             self.db[name].create_index('id', unique=True)
+        self.db.workflow_lock.create_index('id', unique=True)
+        self.db.workflow_lock.update_one({'id': 'management'}, {'$setOnInsert': {'revision': 0}}, upsert=True)
+        self.db.orders.create_index([('buyer_id', 1), ('created_at', -1), ('id', -1)])
+        self.db.sellers.create_index('owner_id')
         self.db.orders.create_index('bundle_id', unique=True)
         self.db.categories.create_index('normalized_name', unique=True)
         for record in builtin_categories():

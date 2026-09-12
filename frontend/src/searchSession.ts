@@ -1,6 +1,10 @@
 import type { BuyerRequest } from './types'
 
 const memory = new Map<string, BuyerRequest>()
+export function clearSearches() {
+  memory.clear()
+  try { for (const key of Object.keys(window.sessionStorage)) if (key.startsWith('buyer-search-v1:') || key === 'buyer-preferences') window.sessionStorage.removeItem(key) } catch { /* Optional storage. */ }
+}
 export function validRequest(value: unknown): value is BuyerRequest {
   if (!value || typeof value !== 'object') return false
   const r = value as BuyerRequest

@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from app.catalog import builtin_categories
 from app.db.store import LocalStore
-from app.main import create_app
+from support import create_app
 from app.schemas import BundleRequest, Location, utcnow
 from app.services.bundle_service import generate_bundles
 from app.services.discovery_ai import DiscoveryAI, ParseRequest, ResearchRequest
@@ -81,7 +81,9 @@ def test_swap_versions_reservation_and_fresh_search(api):
     new = client.post('/bundles/generate', json=REQUEST).json()['bundles']
     reserved = {i['id'] for i in chosen['listings']}
     assert all(not reserved.intersection(i['id'] for i in option['listings']) for option in new)
-    assert LocalStore(store.path).get_order(order['id']) == order
+    from app.services.orders import order_view
+    restored = LocalStore(store.path)
+    assert order_view(restored.snapshot(), restored.get_order(order['id']), 'test-account') == order
 
 @pytest.mark.parametrize('failure,expected', [('expired', 410), ('unavailable', 409), ('price', 409), ('legacy', 409), ('wrong_item', 422)])
 def test_swap_rechecks_source(api, failure, expected):

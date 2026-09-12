@@ -3,7 +3,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from app.services.geocoding import Geocoder
-from app.main import create_app
+from support import create_app
 from app.db.store import LocalStore
 from app.services.route_optimizer import MapProvider
 

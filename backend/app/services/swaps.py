@@ -23,6 +23,8 @@ def alternatives(store,bid,listing_id,provider):
     replacements.sort(key=lambda i:(-item_weight(i,request),i.id))
     result=generate_bundles(inventory,sellers,request,provider,fixed_sets=[retained+[i] for i in replacements[:10]])
     for bundle in result['bundles']:
+        if source.get('buyer_id'):
+            bundle['buyer_id'] = source['buyer_id']
         bundle['parent_bundle_id']=bid
         bundle['replaced_listing_id']=listing_id
         bundle['total_difference']=round(bundle['total']-source['total'],2)

@@ -34,7 +34,7 @@ export function BundleDetails({ bundle, onCheckout, pending, error, order, onSwa
       <div className="checkout-summary"><span>Furniture <b>{money(bundle.item_total)}</b></span><span>{bundle.driver ? 'Driver reward / delivery fee' : 'Self-pickup fee'} <b>{money(bundle.delivery_fee)}</b></span><span className="checkout-total">Your total <b>{money(bundle.total)}</b></span></div>
       {bundle.driver && <p className="fee-note">Delivery: $5 + $1 per mile + $2 per additional seller stop.</p>}
       {error && <p role="alert" className="error-message">{error}</p>}
-      {order ? <div className="success-message" role="status"><PackageCheck size={22} /><div><b>Your bundle is reserved.</b><p>{bundle.driver ? `The pickup plan is now in ${bundle.driver.name.split(' ')[0]}’s seller dashboard.` : 'Your pickup plan is ready above.'} Demo reservation {order.id.slice(0, 8)}.</p></div></div> : <button className="primary full" onClick={onCheckout} disabled={pending}>{pending ? 'Reserving your furniture…' : 'Choose this bundle'} <ArrowRight size={18} /></button>}
+      {order ? <div className="success-message" role="status"><PackageCheck size={22} /><div><b>Order {order.status.replace('_', ' ')}.</b><p>{order.status === 'cancelled' ? 'This is a historical plan. These items are no longer held by this reservation.' : order.status === 'completed' ? 'All items have been received.' : 'Your route and pickup details are shown above.'}</p></div></div> : <button className="primary full" onClick={onCheckout} disabled={pending}>{pending ? 'Reserving your furniture…' : 'Choose this bundle'} <ArrowRight size={18} /></button>}
       <p className="fine-print">Demo reservation only. No payment is collected.</p>
     </div></div>
   </section>
