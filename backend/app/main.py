@@ -19,6 +19,7 @@ from app.services.geocoding import Geocoder
 from app.catalog import CategoryCreate, ensure_categories
 from app.services.discovery_ai import DiscoveryAI, ParseRequest, ResearchRequest
 from app.services.swaps import alternatives
+from app.services.room_image import RoomImageService
 from app.schemas import Model
 from pydantic import Field, ValidationError
 from typing import Literal
@@ -37,11 +38,12 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT.parent / '.env')
 
 
-def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geocoder=None, discovery_ai=None, authenticator=None):
+def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geocoder=None, discovery_ai=None, authenticator=None, room_image=None):
     uploads = Path(uploads_dir) if uploads_dir else ROOT / 'uploads'
     uploads.mkdir(parents=True, exist_ok=True)
     from app.demo_photos import install_demo_photos
     install_demo_photos(uploads)
+    (uploads / 'rooms').mkdir(exist_ok=True)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -55,6 +57,7 @@ def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geo
             os.getenv('GROK_RESEARCH_MODEL') or os.getenv('GROK_MODEL') or 'grok-4.6',
         )
         app.state.ai = ai_service or GrokService(os.getenv('GROK_API_KEY', ''), os.getenv('GROK_MODEL') or 'grok-4.6')
+        app.state.room_image = room_image or RoomImageService(os.getenv('GROK_API_KEY', ''), os.getenv('GROK_IMAGE_MODEL') or 'grok-imagine-image-2.0')
         app.state.store = store or (MongoStore(os.environ['MONGODB_URI'], os.getenv('MONGODB_DB', 'movein'))
                                     if os.getenv('MONGODB_URI') else LocalStore(Path(os.getenv('DEMO_DATA_PATH', ROOT/'data/demo.json'))))
         if authenticator is None:
@@ -189,6 +192,31 @@ def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geo
     def swap(bundle_id: str, payload: SwapRequest, request: Request):
         workflow.owned_bundle(request.app.state.store.snapshot(), bundle_id, actor(request))
         return alternatives(request.app.state.store,bundle_id,payload.listing_id,request.app.state.provider)
+
+    @app.post('/bundles/{bundle_id}/room-image')
+    def bundle_room_image(bundle_id: str, request: Request):
+        store = request.app.state.store
+        bundle = workflow.owned_bundle(store.snapshot(), bundle_id, actor(request))
+        # One render per bundle: later calls (other cards, the bundle page, a reload) reuse the stored preview.
+        if bundle.get('room_image_url'):
+            return {'room_image_url': bundle['room_image_url']}
+        if '/' in bundle_id or '\\' in bundle_id or '..' in bundle_id:
+            raise HTTPException(404, 'Bundle not found. Start a fresh search.')
+        data = request.app.state.room_image.render(bundle, uploads, store.categories())
+        path = uploads / 'rooms' / f'{bundle_id}.jpg'
+        path.write_bytes(data)
+        url = f'/uploads/rooms/{bundle_id}.jpg'
+        def attach(records):
+            stored = records.get('bundles', {}).get(bundle_id)
+            if not stored:
+                raise StoreError(404, 'Bundle not found. Start a fresh search.')
+            stored.update(room_image_url=url, room_image_at=utcnow().isoformat())
+        try:
+            store.atomic(attach)
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
+        return {'room_image_url': url}
 
     @app.get('/sellers')
     def sellers(request: Request):

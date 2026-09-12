@@ -12,11 +12,12 @@ const { default: BuyerAssistant } = await import('../src/BuyerAssistant')
 const { default: PriceResearch } = await import('../src/PriceResearch')
 const { default: CategoryPicker } = await import('../src/CategoryPicker')
 const { googleMapsUrl } = await import('../src/routeLink')
+const { BundleCard } = await import('../src/BundleDetails')
 import type { Bundle, BuyerRequest } from '../src/types'
 afterEach(cleanup)
 const location = { lat: 40.44, lng: -79.94, label: 'Oakland' }
 const request: BuyerRequest = { categories: ['chair'], budget: 100, buyer_location: location, buyer_has_car: true, radius_miles: 25, ranking: 'lowest_cost' }
-const bundle: Bundle = { id: 'b1', request, listings: [{ id: 'c1', seller_id: 's1', title: 'Wooden chair', category: 'chair', description: '', price: 30, condition: 'good', condition_score: 8, item_size: 1, image_url: '', location, available: true, available_date: '2020-01-01' }], sellers: [{ id: 's1', name: 'Sam', location, can_drive: false, vehicle_type: null, vehicle_capacity: 0 }], driver: null, item_total: 30, total: 30, condition_score: 8, seller_count: 1, total_size: 1, transportation_mode: 'buyer_pickup', delivery_fee: 0, distance_miles: 1, duration_minutes: 3, final_score: 1, selection_score: 1, route: { source: 'estimated', geometry_source: 'schematic', warning: 'Estimate', distance_miles: 1, duration_minutes: 3, geometry: [[-79.94, 40.44]], stops: [{ kind: 'buyer', seller_id: null, name: 'Your place', location, listing_ids: [] }] } }
+const bundle: Bundle = { id: 'b1', request, listings: [{ id: 'c1', seller_id: 's1', title: 'Wooden chair', category: 'chair', description: '', price: 30, condition: 'good', condition_score: 8, item_size: 1, image_url: '', location, available: true, available_date: '2020-01-01' }], sellers: [{ id: 's1', name: 'Sam', location, can_drive: false, vehicle_type: null, vehicle_capacity: 0 }], driver: null, item_total: 30, total: 30, condition_score: 8, seller_count: 1, total_size: 1, transportation_mode: 'buyer_pickup', delivery_fee: 0, distance_miles: 1, duration_minutes: 3, final_score: 1, selection_score: 1, route: { source: 'estimated', geometry_source: 'schematic', warning: 'Estimate', distance_miles: 1, duration_minutes: 3, geometry: [[-79.94, 40.44]], stops: [{ kind: 'buyer', seller_id: null, name: 'Your place', location, listing_ids: [] }] }, room_image_url: '/uploads/rooms/b1.jpg' }
 
 test('bundle page links the ordered stops to Google Maps directions', async () => {
   globalThis.fetch = (async () => Response.json(bundle)) as typeof fetch
@@ -25,6 +26,35 @@ test('bundle page links the ordered stops to Google Maps directions', async () =
   assert.equal(link.getAttribute('target'), '_blank')
   assert.equal(link.getAttribute('rel'), 'noopener noreferrer')
   assert.equal(link.getAttribute('href'), 'https://www.google.com/maps/search/?api=1&query=40.440000,-79.940000')
+})
+
+test('bundle page shows the stored room preview without requesting a new one', async () => {
+  let posts = 0
+  globalThis.fetch = (async (_url, options) => { if (options?.method === 'POST') posts++; return Response.json(bundle) }) as typeof fetch
+  render(<BundlePage path="/bundles/b1" onFindAnother={() => {}} />)
+  const img = await screen.findByRole('img', { name: /AI preview/ })
+  assert.equal(img.getAttribute('src'), '/uploads/rooms/b1.jpg')
+  assert.equal(posts, 0)
+})
+
+test('result cards request one room preview per bundle and hide the slot when AI is unavailable', async () => {
+  const urls: string[] = []
+  globalThis.fetch = (async (url, options) => { urls.push(String(url)); return options?.method === 'POST' ? Response.json({ room_image_url: '/uploads/rooms/b2.jpg' }) : Response.json(bundle) }) as typeof fetch
+  const card = { ...bundle, id: 'b2', room_image_url: undefined }
+  const view = render(<BundleCard bundle={card} index={0} active={false} choose={() => {}} />)
+  assert.ok(screen.getByRole('status'))
+  const img = await screen.findByRole('img', { name: /AI preview/ })
+  assert.equal(img.getAttribute('src'), '/uploads/rooms/b2.jpg')
+  view.rerender(<BundleCard bundle={card} index={0} active={false} choose={() => {}} />)
+  assert.equal(urls.filter(u => u.includes('/bundles/b2/room-image')).length, 1)
+  cleanup()
+  globalThis.fetch = (async () => new Response(JSON.stringify({ detail: 'Room preview is not configured.' }), { status: 503 })) as typeof fetch
+  render(<BundleCard bundle={{ ...bundle, id: 'b3', room_image_url: undefined }} index={1} active={false} choose={() => {}} />)
+  // The rejection settles outside React's act scope, so poll briefly instead of waitFor.
+  for (let i = 0; i < 40 && screen.queryByRole('status'); i++) await new Promise(r => setTimeout(r, 25))
+  assert.equal(screen.queryByRole('status'), null)
+  assert.equal(screen.queryByRole('img', { name: /AI preview/ }), null)
+  assert.ok(screen.getByText('Chair'))
 })
 
 test('google maps url uses first stop as origin, last as destination, and sellers as waypoints', () => {

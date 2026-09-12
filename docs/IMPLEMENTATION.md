@@ -53,7 +53,7 @@ Results use `/buyer/results?search=<id>`, with a versioned per-tab request snaps
 | Seller | id, name, location, can_drive, vehicle_type, derived vehicle_capacity |
 | Listing | id, seller_id, title, category, description, price, condition, condition_score [0,10], item_size [1,3], image_url, location, available, available_date |
 | BundleRequest | unique categories, budget, buyer_has_car, buyer_location, radius_miles |
-| Bundle | id, listings, sellers, item_total, condition_score, seller_count, total_size, transportation_mode, driver, delivery_fee, total, route, distance_miles, duration_minutes, selection_score, final_score, created_at |
+| Bundle | id, listings, sellers, item_total, condition_score, seller_count, total_size, transportation_mode, driver, delivery_fee, total, route, distance_miles, duration_minutes, selection_score, final_score, created_at, optional room_image_url |
 | Route | ordered stops (seller or buyer, location, item IDs), geometry [lng,lat], distance_miles, duration_minutes, source, warning |
 | Order | id, bundle_id, full bundle snapshot, created_at, status=reserved |
 
@@ -78,6 +78,7 @@ All JSON; validation errors use FastAPI's `detail` array; business errors use `d
 | POST /buyer/parse | `{text}` | Nullable buyer requirement draft with geocoded `buyer_location` and explanations |
 | POST /listings/research-price | title, category, condition, optional brand/model | Up to five cited comparables and optional used-asking range |
 | GET /bundles/{id} | — | Stored bundle plus nullable order ID |
+| POST /bundles/{id}/room-image | — | `{room_image_url}`; idempotent per bundle, 404 unknown/other buyer, 503 unavailable/configuration error, 504 timeout, 502 invalid provider output |
 | POST /bundles/{id}/alternatives | `{listing_id}` | Up to three new bundle versions with exactly one replacement |
 | GET /orders/{id} | — | Durable reservation and full bundle snapshot |
 
@@ -118,4 +119,5 @@ Shared buyer/seller LocationPicker replaces latitude/longitude fields with expli
 - A swap creates a new stored bundle and changes exactly one listing in the same category. Retained items, price, current availability, radius, delivery leadership, capacity, and route feasibility are rechecked. The source bundle is never mutated.
 - Buyer text parsing returns nullable fields only and the frontend applies every non-null field (categories, budget, transportation, location, ranking) to the form immediately; the buyer can still edit anything before building. `location_text` is geocoded server-side (first Mapbox result, Pittsburgh proximity bias) and returned as `buyer_location`. When the match is only a street or area rather than an exact address, the label keeps the buyer’s own wording ahead of the matched area (e.g. "Kenmawr, Shady Avenue, Pittsburgh, Pennsylvania 15217") and an explanation names the map match used. When geocoding is unavailable or finds nothing, `buyer_location` is null, an explanation is added, and the text only pre-fills the address search with coordinates cleared. Explanations that merely say a field (budget, transportation, location, ranking, quantity) was not mentioned are dropped server-side; unknown categories, quantities above one, and ambiguity are kept.
 - Price research makes at most five xAI web-search tool calls with a 60-second timeout and no retry. Only comparables whose URLs appear in response citations are displayed. Used asking, sold, and new retail evidence stay labeled; a range is computed only from three or more cited used asking prices.
+- Room previews are generated at most once per bundle: up to five listing photos are inlined as base64 to xAI `/v1/images/edits` (`/v1/images/generations` when a bundle has no photos) with a 90-second timeout and no retry, normalized like uploads, stored under `uploads/rooms/{bundle_id}.jpg`, and cached on the bundle so the bundle page and order snapshot reuse it. Result cards request previews after results load and hide the slot on any error; previews never influence selection, pricing, or routing.
 - The eight supplied photos are normalized to at most 1600 px and stored without EXIF metadata. Their listing facts are explicitly fictional. Migration targets only unchanged seed IDs and preserves reservation state and historical snapshots.

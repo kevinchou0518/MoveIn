@@ -4,6 +4,7 @@ import { money } from './types'
 import type { Bundle, Order, Category } from './types'
 import { categoryIcon, categoryLabel } from './catalog'
 import { googleMapsUrl } from './routeLink'
+import RoomPreview from './RoomPreview'
 const RouteMap=lazy(()=>import('./RouteMap'))
 function MapsLink({ route }: { route: Bundle['route'] }) {
   const url = googleMapsUrl(route)
@@ -16,6 +17,7 @@ function ProductImage({ category, src, title }: { category: Category; src?: stri
 export function BundleCard({ bundle, index, active, choose }: { bundle: Bundle; index: number; active: boolean; choose: () => void }) {
   return <article className={`bundle-card ${active ? 'chosen' : ''}`}>
     <div className="bundle-card-heading"><span className={index === 0 ? 'pill recommended' : 'pill'}>{index === 0 ? <><Sparkles size={12} /> Best match</> : `Option 0${index + 1}`}</span><span className="condition">{bundle.condition_score}<span>/10 condition</span></span></div>
+    <RoomPreview bundle={bundle} />
     <div className="product-grid">{bundle.listings.map(item => <div className={`product-shot ${item.category}`} key={item.id}><ProductImage category={item.category} src={item.image_url} title={item.title} /><span>{categoryLabel(item.category)}</span><b>{money(item.price)}</b></div>)}</div>
     <h3>{index === 0 ? 'Your fresh-start bundle' : index === 1 ? 'Another good fit' : 'One more possibility'}</h3>
     {bundle.ranking_reason && <p className="ranking-reason">{bundle.ranking_reason}</p>}<p className="bundle-summary">{bundle.listings.length} pieces · {bundle.seller_count} {bundle.seller_count === 1 ? 'seller' : 'sellers'} · Ready for a new home</p>
@@ -32,7 +34,7 @@ export function BundleDetails({ bundle, onCheckout, pending, error, order, onSwa
     <div className="detail-grid"><div><Suspense fallback={<div className="route-map loading-map">Loading route…</div>}><RouteMap route={bundle.route} /></Suspense>
       <p className="map-note">{bundle.route.warning || 'Driving route from Mapbox.'} Travel time excludes loading.<MapsLink route={bundle.route} /></p>
       <div className="route-stats"><span><RouteIcon size={18} /><b>{bundle.distance_miles} mi</b> total distance</span><span><Clock3 size={18} /><b>{Math.ceil(bundle.duration_minutes)} min</b> driving</span><span><Users size={18} /><b>{bundle.seller_count}</b> pickup {bundle.seller_count === 1 ? 'stop' : 'stops'}</span></div>
-      <div className="included-items"><h3>Your furniture</h3>{bundle.listings.map(i => <div className="included-item" key={i.id}><div className="item-thumb"><ProductImage category={i.category} src={i.image_url} title={i.title} /></div><div><b>{i.title}</b><span>{bundle.sellers.find(s => s.id === i.seller_id)?.name} · {i.condition_score}/10 · {i.item_size} size units</span></div><strong>{money(i.price)}</strong>{onSwap && !order && <button className="text-button" onClick={()=>onSwap(i.id)}>Swap item<span className="sr-only"> {i.title}</span></button>}</div>)}</div>
+      <div className="included-items">{bundle.room_image_url && <figure className="room-preview-figure"><img className="room-preview" src={bundle.room_image_url} alt="AI preview of a room furnished with this bundle's items" loading="lazy" /><figcaption className="preview-pill">AI preview</figcaption></figure>}<h3>Your furniture</h3>{bundle.listings.map(i => <div className="included-item" key={i.id}><div className="item-thumb"><ProductImage category={i.category} src={i.image_url} title={i.title} /></div><div><b>{i.title}</b><span>{bundle.sellers.find(s => s.id === i.seller_id)?.name} · {i.condition_score}/10 · {i.item_size} size units</span></div><strong>{money(i.price)}</strong>{onSwap && !order && <button className="text-button" onClick={()=>onSwap(i.id)}>Swap item<span className="sr-only"> {i.title}</span></button>}</div>)}</div>
     </div><div className="route-plan">
       <div className="driver-heading"><span className="avatar">{bundle.driver ? bundle.driver.name.split(' ').map(n => n[0]).join('') : <CarFront size={21} />}</span><div><h3>{bundle.driver ? `${bundle.driver.name.split(' ')[0]} brings it all together` : 'You’re in the driver’s seat'}</h3><p>{bundle.driver ? `${bundle.driver.vehicle_type?.toUpperCase()} · ${bundle.total_size} of ${bundle.driver.vehicle_capacity} capacity units` : 'Start and finish at your place'}</p></div></div>
       <ol className="stop-list">{bundle.route.stops.map((stop, index) => <li key={index}><span className={`stop-number ${stop.kind}`}>{index + 1}</span><div><b>{stop.name}{index === 0 ? ' · Start' : index === bundle.route.stops.length - 1 ? ' · Finish' : ''}</b><p>{stop.location.label || `${stop.location.lat.toFixed(4)}, ${stop.location.lng.toFixed(4)}`}</p>{stop.listing_ids.length > 0 && <small>{bundle.listings.filter(i => stop.listing_ids.includes(i.id)).map(i => categoryLabel(i.category)).join(' + ')}</small>}</div></li>)}</ol>
