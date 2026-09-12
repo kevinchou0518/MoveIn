@@ -110,7 +110,7 @@ New bundles and order snapshots include nullable reward_breakdown with base, dis
 
 ## Address selection
 
-Shared buyer/seller LocationPicker replaces latitude/longitude fields with explicit text search and named result selection. GET /locations/search?q=… validates 3–200 characters and returns Location[] (lat, lng, label). Mapbox Geocoding v6 uses a Pittsburgh proximity bias, US country filter, five results, autocomplete=false and permanent=true; requests are triggered by Search or Enter rather than every keystroke. Provider failures return a sanitized 503; demo neighborhood shortcuts remain usable. Changing the query invalidates the selected coordinates and stale responses are ignored. Existing seller/listing/bundle schemas remain unchanged.
+Shared buyer/seller LocationPicker replaces latitude/longitude fields with explicit text search and named result selection. GET /locations/search?q=… validates 3–200 characters and returns Location[] (lat, lng, label). Mapbox Geocoding v6 uses a Pittsburgh proximity bias, US country filter, five results, autocomplete=false and permanent=true; requests are triggered by Search or Enter rather than every keystroke. Provider failures return a sanitized 503. Changing the query invalidates the selected coordinates and stale responses are ignored. Existing seller/listing/bundle schemas remain unchanged.
 
 ## P2 contracts
 

@@ -140,7 +140,7 @@ export default function SellerView() {
   }
   async function createProfile(e: React.FormEvent) {
     e.preventDefault(); setError('')
-    if (!pickupLocation) { setError('Search and select a pickup address, or choose a demo neighborhood.'); return }
+    if (!pickupLocation) { setError('Search and select a pickup address.'); return }
     setProfileSaving(true)
     try {
       const result = await api<Seller>(editingProfile ? `/sellers/${sellerId}` : '/sellers', {method: editingProfile ? 'PATCH' : 'POST', body: JSON.stringify({ name, location: pickupLocation, can_drive: canDrive, vehicle_type: canDrive ? vehicle : null })})

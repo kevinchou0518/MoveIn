@@ -30,10 +30,6 @@
 .address-results button:hover { background: #edf0e6; }
 .address-results svg { flex-shrink: 0; }
 .address-results span { overflow-wrap: anywhere; }
-.demo-locations { font-size: 12px; margin-top: 10px; }
-.demo-locations summary { cursor: pointer; }
-.demo-locations div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.demo-locations button { background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 7px; font-size: 11px; }
 .location-attribution { display: block; font-size: 10px; color: #7a8969; margin-top: 8px; }
 
 /* P2: reviewable steps, catalog discovery, and reservation flow. */

@@ -31,7 +31,7 @@ class Geocoder:
 
     def _matches(self, query: str):
         if not self.token:
-            raise HTTPException(503, 'Address search is unavailable. Choose a demo neighborhood or try later.')
+            raise HTTPException(503, 'Address search is unavailable. Try again later.')
         try:
             with httpx.Client(timeout=8, transport=self.transport) as client:
                 response = client.get('https://api.mapbox.com/search/geocode/v6/forward', params={
@@ -50,4 +50,4 @@ class Geocoder:
                     matches.append((Location(lat=lat, lng=lng, label=label[:150]), properties))
             return matches
         except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
-            raise HTTPException(503, 'Address search is unavailable. Try again or choose a demo neighborhood.') from None
+            raise HTTPException(503, 'Address search is unavailable. Try again later.') from None

@@ -8,7 +8,7 @@ const {default:React,useState}=await import('react')
 const {default:LocationPicker,demoPlaces}=await import('../src/LocationPicker')
 afterEach(cleanup)
 const location={lat:40.44,lng:-79.94,label:'5000 Forbes Avenue, Pittsburgh'}
-function Form(){const [value,setValue]=useState(demoPlaces[0]);return <><LocationPicker label="Buyer location" value={value} onChange={setValue}/><output>{value?.label || 'unselected'}</output></>}
+function Form(){const [value,setValue]=useState(demoPlaces[0]);return <><LocationPicker label="Buyer location" value={value} onChange={setValue}/><output>{value?.label || 'unselected'}</output><button type="button" onClick={()=>setValue(demoPlaces[1])}>Restore Shadyside</button></>}
 test('address search requires an explicit result selection, edits invalidate selection',async()=>{
  globalThis.fetch=async()=>Response.json([location])
  render(<Form/> )
@@ -21,19 +21,18 @@ test('address search requires an explicit result selection, edits invalidate sel
  fireEvent.change(screen.getByLabelText('Buyer location'),{target:{value:'different'}})
  assert.ok(screen.getByText('unselected'))
 })
-test('late results cannot replace a demo selection',async()=>{
+test('late results cannot replace a restored selection',async()=>{
  let finish:(r:Response)=>void
  globalThis.fetch=async()=>new Promise(resolve=>{finish=resolve})
  render(<Form/> )
  fireEvent.change(screen.getByLabelText('Buyer location'),{target:{value:'Forbes'}})
  fireEvent.click(screen.getByRole('button',{name:'Search buyer location'}))
- fireEvent.click(screen.getByText('Use a demo neighborhood'))
- fireEvent.click(screen.getByRole('button',{name:'Shadyside, Pittsburgh'}))
+ fireEvent.click(screen.getByRole('button',{name:'Restore Shadyside'}))
  finish!(Response.json([location]))
  await waitFor(()=>assert.equal(screen.queryByRole('button',{name:location.label}),null))
  assert.equal((screen.getByLabelText('Buyer location') as HTMLInputElement).value,'Shadyside, Pittsburgh')
 })
-test('empty results and outages allow neighborhood shortcuts',async()=>{
+test('empty results and outages keep the field editable',async()=>{
  globalThis.fetch=async()=>Response.json([])
  render(<Form/> )
  fireEvent.change(screen.getByLabelText('Buyer location'),{target:{value:'Unknown place'}})
@@ -42,9 +41,9 @@ test('empty results and outages allow neighborhood shortcuts',async()=>{
  globalThis.fetch=async()=>Response.json({detail:'Address search is unavailable'},{status:503})
  fireEvent.click(screen.getByRole('button',{name:'Search buyer location'}))
  await screen.findByText('Address search is unavailable')
- fireEvent.click(screen.getByText('Use a demo neighborhood'))
- fireEvent.click(screen.getByRole('button',{name:'Oakland, Pittsburgh'}))
- assert.equal((screen.getByLabelText('Buyer location') as HTMLInputElement).value,'Oakland, Pittsburgh')
+ fireEvent.change(screen.getByLabelText('Buyer location'),{target:{value:'Another place'}})
+ assert.equal((screen.getByLabelText('Buyer location') as HTMLInputElement).value,'Another place')
+ assert.ok(screen.getByText('Search, then select a result to confirm your location.'))
 })
 test('restoring a saved location synchronizes the address without changing the selection',()=>{
  const changes:unknown[]=[]

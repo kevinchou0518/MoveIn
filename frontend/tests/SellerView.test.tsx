@@ -20,14 +20,15 @@ for (const rejected of [false,true]) {
     globalThis.fetch=(async(url,options)=>{
       if(options?.method==='PATCH') {writes.push({url:String(url),body:JSON.parse(String(options.body))});return new Promise<Response>(r=>{finish=r})}
       if(options?.method==='POST')throw new Error('Address must not publish a listing')
-      return Response.json(String(url).endsWith('/me')?{sellers}:[])
+      return Response.json(String(url).endsWith('/me')?{sellers}:String(url).includes('/locations/search')?[{lat:40.4512,lng:-79.9321,label:'Shadyside, Pittsburgh'}]:[])
     }) as typeof fetch
     render(<SellerView />)
     fireEvent.click(await screen.findByRole('button',{name:'Change address'}))
     fireEvent.change(screen.getByLabelText('Listing title'),{target:{value:'Unsaved furniture'}})
     fireEvent.change(screen.getByLabelText('Seller pickup address'),{target:{value:'Pittsburgh'}})
     assert.equal((screen.getByRole('button',{name:'Save address'}) as HTMLButtonElement).disabled,true)
-    fireEvent.click(screen.getByRole('button',{name:'Shadyside, Pittsburgh',exact:true}))
+    fireEvent.click(screen.getByRole('button',{name:'Search seller pickup address'}))
+    fireEvent.click(await screen.findByRole('button',{name:'Shadyside, Pittsburgh',exact:true}))
     fireEvent.click(screen.getByRole('button',{name:'Save address'}))
     assert.equal(writes.length,1)
     assert.ok(writes[0].url.endsWith('/sellers/jordan'))
