@@ -1,5 +1,17 @@
 # Verification
 
+## Compact seller analysis and pickup address — latest
+
+- Reduced the seller AI panel to one button, a short result status, and actionable errors. Added a loading spinner, photo scan, and completion transition, with reduced-motion support. Removed confidence, price-range prose, and duplicate instructions; analysis still fills the editable form automatically.
+- Seller inventory now includes Change address, address search/selection, Save address, and cancel. Saving updates the seller pickup location and listing locations, preserves listing drafts, blocks overlapping form submission, and retains backend restrictions for active orders. Older dashboard reads cannot replace the saved address.
+- All 62 frontend tests and the production build pass. New tests cover address selection, no accidental listing submission, saved address updates, active-order rejection/retry, preserved drafts, and analysis busy/result states. No backend behavior changed.
+
+## Seller photo analysis autofill — latest
+
+- Photo analysis now directly fills title, category, description/visible issues, condition, score, and the suggested price midpoint. Removed the selection checkboxes and Apply step; users can edit the resulting form before publishing.
+- Null/empty suggestions leave existing values intact. Edits made while analysis is pending are preserved, and stale results after photo/profile changes are still discarded.
+- All 60 frontend tests and the production TypeScript/Vite build pass. Tests cover direct filling of existing fields, manual edits before publishing, in-flight edits, empty results, stale responses, and provider failure.
+
 ## Original sellers promoted to users — latest
 
 - The seven original sellers are now the seven selectable users. Each owns their original furniture and can buy, sell, and manage orders. Profile directly edits the selected user's settings; the extra selling-profile selector and Sell furniture account/settings panel were removed.
@@ -126,3 +138,12 @@ P2 still has the deliberate product limits documented in the specification: no a
 - Best condition sorting uses the precise average, retaining rounded display values and deterministic tie-breakers. The backend ranking regression now asserts ordering by actual listing averages.
 - 75 backend tests pass (one optional Atlas test skipped), 22 frontend tests pass, and the production build passes. New frontend tests cover reload, history traversal, missing/disabled storage, retry after edits, late responses, and regeneration after returning from a receipt.
 - Browser verification at 390 × 844 confirmed the results region receives focus and scrolls into view without horizontal overflow. A lamp bundle opened its confirmation dialog, canceled without reservation, and returned to the original results URL for regeneration.
+
+### Detailed demo addresses
+
+- Seven demo seed users now have verified public street addresses and matching Mapbox coordinates; see `docs/DEMO_ADDRESSES.md` for sources and migration commands.
+- Applied the backed-up address-only migration to local `backend/data/persona-demo.json`; all seven `/me` profiles return their new addresses.
+- Verified existing orders and bundle snapshots, account/upload records, and all inventory fields except location/revision are unchanged.
+- Backend regression suite: 127 passed, 2 skipped. Migration coverage includes custom address preservation, revision updates, immutable snapshots, and idempotency.
+
+- Follow-up: moved Taylor to CLP Homewood, 7101 Hamilton Avenue, Pittsburgh, PA 15208. All seven live demo profiles now use Pittsburgh addresses. Seed and address migration include this change; existing orders remain unchanged. Distance exclusion is covered using an isolated remote test fixture. Backend: 129 passed, 2 skipped.

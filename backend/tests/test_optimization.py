@@ -41,7 +41,7 @@ def test_seed_returns_three_distinct_valid_bundles(request_data):
     assert len(identities) == 3
     assert result['diagnostics']['filtered_out']['unavailable'] == 2
     assert result['diagnostics']['filtered_out']['price'] == 1
-    assert result['diagnostics']['filtered_out']['distance'] == 1
+    assert result['diagnostics']['filtered_out'].get('distance', 0) == 0
 
 
 def test_deterministic_ranking(request_data):
@@ -120,3 +120,14 @@ def test_demo_rejection_report_reconciles(request_data):
     assert all(report['rejected'][reason] > 0 for reason in ('budget','no_driver','capacity'))
     pickup=run(request_data.model_copy(update={'buyer_has_car':True}))['diagnostics']['combination_checks']
     assert pickup['rejected']['no_driver']==pickup['rejected']['capacity']==0
+
+
+def test_distance_filter_excludes_remote_fixture(request_data):
+    from app.schemas import Location
+    sellers, items = seed_data()
+    remote = Location(lat=41.639778, lng=-80.149919, label='Remote test fixture')
+    sellers = [s.model_copy(update={'location': remote}) if s.id == 'distant' else s for s in sellers]
+    items = [i.model_copy(update={'location': remote}) if i.seller_id == 'distant' else i for i in items]
+    result = run(request_data, items, sellers)
+    assert result['diagnostics']['filtered_out']['distance'] == 1
+    assert all(i['seller_id'] != 'distant' for b in result['bundles'] for i in b['listings'])

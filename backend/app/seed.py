@@ -4,14 +4,15 @@ from app.demo_photos import PHOTO_LISTINGS, photo_fields
 
 
 def seed_data():
+    # Public demo pickup addresses; verified sources in docs/DEMO_ADDRESSES.md.
     specs = [
-        ('maya', 'Maya Chen', 40.4512, -79.9321, 'Shadyside', False, None),
-        ('jordan', 'Jordan Brooks', 40.4318, -79.9222, 'Squirrel Hill', True, 'truck'),
-        ('alex', 'Alex Rivera', 40.4601, -79.9514, 'Bloomfield', True, 'suv'),
-        ('sam', 'Sam Patel', 40.4438, -79.9581, 'Oakland', False, None),
-        ('riley', 'Riley Morgan', 40.4691, -79.9612, 'Lawrenceville', True, 'truck'),
-        ('jamie', 'Jamie Park', 40.4482, -79.9405, 'Shadyside', True, 'sedan'),
-        ('distant', 'Taylor Reed', 41.50, -80.1, 'Outside demo area', True, 'truck'),
+        ('maya', 'Maya Chen', 40.450869, -79.934052, '5436 Walnut Street, Pittsburgh, PA 15232', False, None),
+        ('jordan', 'Jordan Brooks', 40.438380, -79.922719, '5801 Forbes Avenue, Pittsburgh, PA 15217', True, 'truck'),
+        ('alex', 'Alex Rivera', 40.453861, -79.949188, '4724 Baum Boulevard, Pittsburgh, PA 15213', True, 'suv'),
+        ('sam', 'Sam Patel', 40.443708, -79.949132, '4400 Forbes Avenue, Pittsburgh, PA 15213', False, None),
+        ('riley', 'Riley Morgan', 40.467594, -79.959103, '279 Fisk Street, Pittsburgh, PA 15201', True, 'truck'),
+        ('jamie', 'Jamie Park', 40.460895, -79.926516, '130 South Whitfield Street, Pittsburgh, PA 15206', True, 'sedan'),
+        ('distant', 'Taylor Reed', 40.455255, -79.899206, '7101 Hamilton Avenue, Pittsburgh, PA 15208', True, 'truck'),
     ]
     sellers = [Seller(id=sid, name=name, location={'lat':lat, 'lng':lng, 'label':label}, can_drive=drive, vehicle_type=vehicle)
                for sid,name,lat,lng,label,drive,vehicle in specs]
@@ -43,10 +44,10 @@ def seed_data():
         ('tv-sold', 'sam', 'Already sold TV', 'tv', 10, 9.5, 1),
         ('desk-future', 'maya', 'Not yet available desk', 'desk', 15, 9.5, 2),
         ('tv-premium', 'jordan', 'Premium OLED television', 'tv', 650, 9.8, 3),
-        ('chair-far', 'distant', 'Out-of-area chair', 'chair', 5, 9.8, 1),
+        ('chair-far', 'distant', 'Compact accent chair', 'chair', 5, 9.8, 1),
     ]
     listings = [Listing(id=lid, seller_id=sid, title=title, category=category, price=price,
-                        description='Fictional demo listing. Clean, sturdy, and ready for a new home. Pickup in '+by_id[sid].location.label+'.',
+                        description='Fictional demo listing. Clean, sturdy, and ready for a new home. Pickup at '+by_id[sid].location.label+'.',
                         condition='like_new' if condition>=9 else 'good', condition_score=condition,
                         item_size=size, image_url=f'/images/{category}.svg', location=by_id[sid].location,
                         available=lid!='tv-sold', available_date=date(2099,1,1) if lid=='desk-future' else date(2020,1,1))

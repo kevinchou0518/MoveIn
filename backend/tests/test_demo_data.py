@@ -73,3 +73,53 @@ def test_cli_preview_does_not_write_and_reset_backs_up(tmp_path, monkeypatch):
     backups = list((tmp_path / 'backend/data').glob('demo-backup-*.json'))
     assert len(backups) == 1
     assert json.loads(backups[0].read_text()) == original
+
+
+def test_address_migration_preserves_orders_inventory_and_custom_locations():
+    from copy import deepcopy
+    current = demo.prepare({})
+    old = {'lat': 40.4512, 'lng': -79.9321, 'label': 'Shadyside'}
+    current['sellers']['maya']['location'] = deepcopy(old)
+    item = current['listings']['tv-01']
+    item.update(location=deepcopy(old), available=False, revision=5, reserved_order_id='order')
+    current['orders']['order'] = {'id': 'order', 'status': 'reserved', 'bundle': {'listings': [deepcopy(item)]}}
+    current['bundles']['quote'] = {'id': 'quote', 'listings': [deepcopy(item)]}
+    custom = {'lat': 40.44, 'lng': -79.95, 'label': 'My custom address'}
+    current['sellers']['jordan']['location'] = custom
+    before = deepcopy(current)
+    updated = demo.migrate_addresses(current)
+    assert current == before
+    assert updated['sellers']['maya']['location']['label'] == '5436 Walnut Street, Pittsburgh, PA 15232'
+    assert updated['sellers']['maya']['revision'] == before['sellers']['maya']['revision'] + 1
+    assert updated['listings']['tv-01']['location'] == updated['sellers']['maya']['location']
+    assert updated['listings']['tv-01']['revision'] == 6
+    assert not updated['listings']['tv-01']['available']
+    assert updated['listings']['tv-01']['reserved_order_id'] == 'order'
+    for collection in ('orders', 'bundles', 'accounts', 'uploads'):
+        assert updated[collection] == before[collection]
+    assert updated['sellers']['jordan'] == before['sellers']['jordan']
+    assert demo.migrate_addresses(updated) == updated
+
+
+def test_seed_addresses_are_complete_and_listings_share_them():
+    from app.seed import seed_data
+    sellers, listings = seed_data()
+    by_id = {s.id: s for s in sellers}
+    assert len(sellers) == 7
+    assert all(', PA ' in s.location.label and s.location.label[0].isdigit() for s in sellers)
+    assert all(item.location == by_id[item.seller_id].location for item in listings)
+    assert all(', Pittsburgh, PA ' in s.location.label for s in sellers)
+
+
+def test_meadville_demo_address_migrates_to_pittsburgh():
+    from copy import deepcopy
+    current = demo.prepare({})
+    old = {'lat': 41.639778, 'lng': -80.149919, 'label': '848 North Main Street, Meadville, PA 16335'}
+    current['sellers']['distant']['location'] = deepcopy(old)
+    current['listings']['chair-far'].update(location=deepcopy(old), title='Out-of-area chair')
+    updated = demo.migrate_addresses(current)
+    assert updated['sellers']['distant']['location']['label'] == '7101 Hamilton Avenue, Pittsburgh, PA 15208'
+    assert updated['listings']['chair-far']['location'] == updated['sellers']['distant']['location']
+    assert updated['listings']['chair-far']['title'] == 'Compact accent chair'
+    assert demo.migrate_addresses(updated) == updated
+    assert current['sellers']['distant']['location'] == old
