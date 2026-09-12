@@ -1,4 +1,4 @@
-# SnackOverflow
+# MoveIn
 
 An end-to-end hackathon demo for finding **fulfillable secondhand furniture bundles**. A buyer chooses categories, a furniture budget, a location, delivery or self-pickup, and a ranking preference. The app selects up to three bundles, assigns an eligible seller driver, and computes pickup routes. Sellers upload photos, publish editable listing details, and see delivery plans after a buyer reserves a bundle.
 
@@ -59,7 +59,7 @@ Copy `.env.example` to `.env` in the repository root. Never commit real keys.
 | Variable | Behavior |
 | --- | --- |
 | `MONGODB_URI` | Selects MongoDB Atlas persistence; empty uses local JSON. Configured connection failures are surfaced. Atlas must support transactions. |
-| `MONGODB_DB` | Database name, default `snackoverflow`. |
+| `MONGODB_DB` | Database name, default `movein`. |
 | `MAPBOX_ACCESS_TOKEN` | Server-only token for Mapbox driving matrices and route geometry. |
 | `VITE_MAPBOX_TOKEN` | Optional public, URL-restricted Mapbox token for interactive map tiles. It is intentionally browser-visible. |
 | `VITE_API_URL` | Optional frontend API base for hosting separately; local Vite proxies `/api` to port 8000. |

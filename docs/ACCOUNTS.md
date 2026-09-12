@@ -8,7 +8,7 @@ Startup migration maps the former Avery/Casey/Morgan demo identities to Maya/Jor
 
 This is an open demo, not secure authentication: anyone can select any persona. API requests use `Authorization: Bearer maya`, `demo-buyer-2`, or `demo-seller`; absent selection defaults to the first buyer. Unknown identities are rejected. Account ownership and order lifecycle checks still operate between personas.
 
-For historical data, `scripts/demo_data.py --account-map backend/data/account-map.json` previews an explicit mapping; add `--apply` to back up and apply it. Use issuer `https://demo.snackoverflow.local/`, buyer_sub `maya`, and map each seed seller ID to the same user ID. The migration cancels only the four previously identified legacy orders, preserves snapshots, releases their inventory safely, and rejects conflicts. Full resets remain separate and remove custom catalog data and orders.
+For historical data, `scripts/demo_data.py --account-map backend/data/account-map.json` previews an explicit mapping; add `--apply` to back up and apply it. Use the fixed legacy issuer `https://demo.snackoverflow.local/` (kept from before the MoveIn rename because account IDs are hashed from it), buyer_sub `maya`, and map each seed seller ID to the same user ID. The migration cancels only the four previously identified legacy orders, preserves snapshots, releases their inventory safely, and rejects conflicts. Full resets remain separate and remove custom catalog data and orders.
 
 ## Flows and status rules
 

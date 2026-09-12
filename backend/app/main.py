@@ -55,7 +55,7 @@ def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geo
             os.getenv('GROK_RESEARCH_MODEL') or os.getenv('GROK_MODEL') or 'grok-4.6',
         )
         app.state.ai = ai_service or GrokService(os.getenv('GROK_API_KEY', ''), os.getenv('GROK_MODEL') or 'grok-4.6')
-        app.state.store = store or (MongoStore(os.environ['MONGODB_URI'], os.getenv('MONGODB_DB', 'snackoverflow'))
+        app.state.store = store or (MongoStore(os.environ['MONGODB_URI'], os.getenv('MONGODB_DB', 'movein'))
                                     if os.getenv('MONGODB_URI') else LocalStore(Path(os.getenv('DEMO_DATA_PATH', ROOT/'data/demo.json'))))
         if authenticator is None:
             app.state.store.atomic(initialize_demo_accounts)
@@ -63,7 +63,7 @@ def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geo
         yield
         app.state.store.close()
 
-    app = FastAPI(title='SnackOverflow', version='0.1.0', lifespan=lifespan,
+    app = FastAPI(title='MoveIn', version='0.1.0', lifespan=lifespan,
                   description='Deterministic, fulfillable secondhand furniture bundles. Demo only; no payments.')
     app.mount('/uploads', StaticFiles(directory=uploads), name='uploads')
     # Historical order snapshots retain their original photo URLs.

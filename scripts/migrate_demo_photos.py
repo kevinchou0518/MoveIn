@@ -37,7 +37,7 @@ def main():
     if uri:
         from pymongo import MongoClient
         with MongoClient(uri, serverSelectionTimeoutMS=5000) as client:
-            db = client[os.getenv('MONGODB_DB', 'snackoverflow')]
+            db = client[os.getenv('MONGODB_DB', 'movein')]
             updates, additions = changes({x['id']: x for x in db.listings.find({}, {'_id': 0})})
             if args.apply:
                 for guard, patch in updates: db.listings.update_one(guard, {'$set': patch})

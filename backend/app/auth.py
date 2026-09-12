@@ -2,6 +2,8 @@
 import hashlib
 from fastapi import HTTPException, Request
 
+# Legacy issuer string from before the MoveIn rename. Account IDs are hashed from it,
+# so it must stay unchanged or every existing owner_id and order account would be orphaned.
 DEMO_ISSUER = 'https://demo.snackoverflow.local/'
 DEMO_USERS = ('maya', 'jordan', 'alex', 'sam', 'riley', 'jamie', 'distant')
 LEGACY_USERS = {'demo-buyer': 'maya', 'demo-buyer-2': 'jordan', 'demo-seller': 'riley'}

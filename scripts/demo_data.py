@@ -72,7 +72,7 @@ def main():
         if uri:
             from pymongo import MongoClient
             client = MongoClient(uri, serverSelectionTimeoutMS=10000)
-            db = client[os.getenv('MONGODB_DB', 'snackoverflow')]
+            db = client[os.getenv('MONGODB_DB', 'movein')]
             current = {name: {r['id']: r for r in db[name].find({})} for name in COLLECTIONS}
             print(f'Target: MongoDB database {db.name}')
         else:
