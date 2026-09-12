@@ -42,8 +42,18 @@
 .page-navigation { margin-bottom: 24px; }
 .ranking-picker, .buyer-assistant, .price-research { display: block; margin: 20px 0; }
 .buyer-assistant, .price-research { padding: 15px; border: 1px solid #dcded4; border-radius: 12px; background: #f7f7f0; }
-.buyer-assistant summary, .price-research summary, .category-picker summary { cursor: pointer; font-weight: 600; }
-.buyer-assistant textarea { margin-top: 8px; }
+.price-research summary, .category-picker summary { cursor: pointer; font-weight: 600; }
+.buyer-assistant textarea { display:block; margin-top:12px; min-height:90px; resize:vertical; font-size:13px; line-height:1.6; }
+.buyer-autofill-button { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:42px; margin-top:12px; padding:10px 14px; border:1px solid var(--green); border-radius:7px; background:var(--green); color:#fffef9; font-size:13px; font-weight:600; }
+.buyer-autofill-button:hover:not(:disabled) { filter:brightness(.9); }
+.buyer-autofill-button:disabled { cursor:default; opacity:.55; }
+.buyer-autofill-feedback { margin-top:12px; font-size:12px; line-height:1.6; }
+.buyer-autofill-status { display:flex; align-items:flex-start; gap:6px; color:#426539; }
+.buyer-autofill-status svg { flex-shrink:0; margin-top:2px; }
+.buyer-autofill-notes { margin-top:8px; color:#6d624c; }
+.buyer-assistant .buyer-autofill-notes summary { font-size:12px; font-weight:500; }
+.buyer-autofill-notes p { margin-top:6px; }
+.buyer-autofill-error { margin-top:12px; font-size:12px; line-height:1.6; color:#a04c2c; }
 .category-picker { min-width: 0; flex: 1; }
 .category-picker details { margin-top: 8px; font-size: 12px; }
 .category-picker details label { margin-top: 12px; }
@@ -116,3 +126,10 @@
 .buyer-category-option.unavailable{opacity:.5;cursor:not-allowed}
 .buyer-category-empty{font-size:12px;color:#78806f;padding:12px 4px;line-height:1.5}
 .buyer-category-count{margin-top:10px;line-height:1.6}
+
+.buyer-assistant-title { font-size:14px; font-weight:600; line-height:1.4; }
+.buyer-page-heading { padding:24px 0 20px; }
+.buyer-page-heading h1 { font-size:30px; line-height:1.2; letter-spacing:-.5px; }
+@media(max-width:640px) { .buyer-page-heading { padding:20px 0 16px; } .buyer-page-heading h1 { font-size:26px; } }
+
+.requirements form > .buyer-assistant:first-child { margin-top:0; }
