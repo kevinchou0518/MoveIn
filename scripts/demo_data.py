@@ -24,6 +24,41 @@ from app.seed import seed_data
 COLLECTIONS = ('sellers', 'listings', 'categories', 'bundles', 'orders', 'accounts', 'uploads')
 
 
+def migrate_addresses(current):
+    """Upgrade untouched neighborhood defaults, preserving custom addresses and receipts."""
+    legacy = {
+        'maya': (40.4512, -79.9321, 'Shadyside'),
+        'jordan': (40.4318, -79.9222, 'Squirrel Hill'),
+        'alex': (40.4601, -79.9514, 'Bloomfield'),
+        'sam': (40.4438, -79.9581, 'Oakland'),
+        'riley': (40.4691, -79.9612, 'Lawrenceville'),
+        'jamie': (40.4482, -79.9405, 'Shadyside'),
+        'distant': (41.50, -80.1, 'Outside demo area'),
+    }
+    data = deepcopy(current)
+    seeds, _ = seed_data()
+    for seed in seeds:
+        seller = data.get('sellers', {}).get(seed.id)
+        lat, lng, label = legacy[seed.id]
+        old = {'lat': lat, 'lng': lng, 'label': label}
+        previous = [old]
+        if seed.id == 'distant':
+            previous.append({'lat': 41.639778, 'lng': -80.149919,
+                             'label': '848 North Main Street, Meadville, PA 16335'})
+        if not seller or seller.get('location') not in previous:
+            continue
+        old = deepcopy(seller['location'])
+        seller['location'] = seed.location.model_dump(mode='json')
+        seller['revision'] = seller.get('revision', 0) + 1
+        for item in data.get('listings', {}).values():
+            if item.get('seller_id') == seed.id and item.get('location') == old:
+                item['location'] = deepcopy(seller['location'])
+                item['revision'] = item.get('revision', 0) + 1
+                if item.get('id') == 'chair-far' and item.get('title') == 'Out-of-area chair':
+                    item['title'] = 'Compact accent chair'
+    return data
+
+
 def prepare(current, reset=False):
     data = {name: {} for name in COLLECTIONS} if reset else deepcopy(current)
     sellers, listings = seed_data()
@@ -60,9 +95,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply', action='store_true')
     parser.add_argument('--reset', action='store_true')
+    parser.add_argument('--migrate-addresses', action='store_true', help='Only upgrade untouched legacy demo addresses; preserve orders and inventory status')
     parser.add_argument('--account-map', type=Path, help='JSON issuer, buyer_sub, and sellers {seller_id: demo subject} mapping')
     parser.add_argument('--local', type=Path, help='Use this local JSON file instead of configured MongoDB')
     args = parser.parse_args()
+    if args.migrate_addresses and (args.reset or args.account_map):
+        parser.error('Apply address migration separately from reset or account migration.')
     if args.reset and args.account_map:
         parser.error('Apply account migration separately from a full demo reset.')
     load_dotenv(ROOT / '.env')
@@ -79,12 +117,12 @@ def main():
             path = args.local or Path(os.getenv('DEMO_DATA_PATH', ROOT / 'backend/data/demo.json'))
             current = json.loads(path.read_text()) if path.exists() else {}
             print(f'Target: local file {path}')
-        desired = prepare(current, args.reset)
+        desired = migrate_addresses(current) if args.migrate_addresses else prepare(current, args.reset)
         if args.account_map:
             from account_migration import assign_accounts
             mapping = json.loads(args.account_map.read_text())
             desired = assign_accounts(desired, mapping)
-        print('RESET ALL app records (including custom listings and orders)' if args.reset else 'Add missing seeds and migrate demo photo URLs; preserve existing data')
+        print('Upgrade legacy demo addresses only' if args.migrate_addresses else 'RESET ALL app records (including custom listings and orders)' if args.reset else 'Add missing seeds and migrate demo photo URLs; preserve existing data')
         print(json.dumps({name: {'before': len(current.get(name, {})), 'after': len(desired[name])} for name in COLLECTIONS}))
         print(json.dumps({'changed_ids': {name: [rid for rid, record in desired[name].items() if record != current.get(name, {}).get(rid)] for name in COLLECTIONS}}))
         if not args.apply:
@@ -92,7 +130,8 @@ def main():
             return
         if current:
             backup(current)
-        install_demo_photos(ROOT / 'backend/uploads')
+        if not args.migrate_addresses:
+            install_demo_photos(ROOT / 'backend/uploads')
         if client:
             db.workflow_lock.update_one({'id': 'management'}, {'$setOnInsert': {'revision': 0}}, upsert=True)
             def write(session):

@@ -86,7 +86,7 @@ Full interactive contract: FastAPI `/docs`; machine-readable `/openapi.json`.
 
 ## Seed requirements
 
-At least six named fictional Pittsburgh sellers across Oakland, Shadyside, Bloomfield, Squirrel Hill, and Lawrenceville. Include non-drivers, an insufficient-capacity sedan, an SUV, and two trucks. At least four candidates for each of TV, TV stand, desk, chair. Include tempting unavailable, future-dated, distant, and over-budget inventory. Fixture images are bundled locally. Baseline: these four categories, $300, no car, Oakland (40.443,-79.943). It must consistently produce three distinct feasible bundles, each with at least three sellers so pickup ordering is visible. Tests independently exercise no driver, insufficient capacity, tight budget, missing category, self-pickup, and stale checkout.
+At least six named fictional Pittsburgh sellers across Oakland, Shadyside, Bloomfield, Squirrel Hill, and Lawrenceville. Include non-drivers, an insufficient-capacity sedan, an SUV, and two trucks. At least four candidates for each of TV, TV stand, desk, chair. Include tempting unavailable, future-dated and over-budget inventory (all seven demo users now have Pittsburgh pickup addresses). Fixture images are bundled locally. Baseline: these four categories, $300, no car, Oakland (40.443,-79.943). It must consistently produce three distinct feasible bundles, each with at least three sellers so pickup ordering is visible. Tests independently exercise no driver, insufficient capacity, tight budget, missing category, self-pickup, and stale checkout.
 
 ## Critical path
 

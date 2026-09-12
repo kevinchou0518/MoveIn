@@ -12,6 +12,40 @@ const result = {title:'Suggested chair',description:'Wooden chair',category:'cha
 let resolveAnalysis: (value: Response) => void
 let published: Record<string,unknown> | undefined
 
+for (const rejected of [false,true]) {
+  test(`seller can select and save a pickup address without submitting a listing (rejected: ${rejected})`,async()=>{
+    window.history.replaceState(null,'','/seller/jordan/listings')
+    const writes:{url:string;body:Record<string,unknown>}[]=[]
+    let finish:(r:Response)=>void=()=>{}
+    globalThis.fetch=(async(url,options)=>{
+      if(options?.method==='PATCH') {writes.push({url:String(url),body:JSON.parse(String(options.body))});return new Promise<Response>(r=>{finish=r})}
+      if(options?.method==='POST')throw new Error('Address must not publish a listing')
+      return Response.json(String(url).endsWith('/me')?{sellers}:[])
+    }) as typeof fetch
+    render(<SellerView />)
+    fireEvent.click(await screen.findByRole('button',{name:'Change address'}))
+    fireEvent.change(screen.getByLabelText('Listing title'),{target:{value:'Unsaved furniture'}})
+    fireEvent.change(screen.getByLabelText('Seller pickup address'),{target:{value:'Pittsburgh'}})
+    assert.equal((screen.getByRole('button',{name:'Save address'}) as HTMLButtonElement).disabled,true)
+    fireEvent.click(screen.getByRole('button',{name:'Shadyside, Pittsburgh',exact:true}))
+    fireEvent.click(screen.getByRole('button',{name:'Save address'}))
+    assert.equal(writes.length,1)
+    assert.ok(writes[0].url.endsWith('/sellers/jordan'))
+    assert.deepEqual(Object.keys(writes[0].body),['location'])
+    assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).matches(':disabled'),true)
+    await act(async()=>finish(rejected?Response.json({detail:'Finish or cancel active orders before changing pickup or vehicle details.'},{status:409}):Response.json({...sellers[0],location:writes[0].body.location})))
+    assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).value,'Unsaved furniture')
+    assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).matches(':disabled'),false)
+    if(rejected) {
+      assert.ok(screen.getByRole('alert'))
+      assert.equal((screen.getByRole('button',{name:'Save address'}) as HTMLButtonElement).disabled,false)
+    } else {
+      assert.ok(screen.getByText('Shadyside, Pittsburgh'))
+      assert.equal(screen.queryByLabelText('Seller pickup address'),null)
+    }
+  })
+}
+
 for (const failed of [false,true]) {
   test(`pending save locks cancellation and editor fields, then restores editing (failure: ${failed})`, async () => {
     window.history.replaceState(null,'','/seller/jordan/listings')
@@ -244,23 +278,39 @@ async function upload() {
   fireEvent.change(screen.getByLabelText('Furniture photo'),{target:{files:[new File(['image'],'chair.jpg',{type:'image/jpeg'})]}})
   await screen.findByRole('button',{name:'Analyze photo'})
 }
-test('review preserves edits, applies selected suggestions, then publishes edited values',async () => {
+test('analysis fills existing fields automatically and publishes subsequent manual edits',async () => {
   setup(); await upload()
   fireEvent.change(screen.getByLabelText('Listing title'),{target:{value:'My title'}})
   fireEvent.click(screen.getByRole('button',{name:'Analyze photo'}))
+  assert.equal(screen.getByRole('region',{name:'AI listing assistant'}).getAttribute('aria-busy'),'true')
+  assert.equal(screen.queryByText(/AI confidence/),null)
   resolveAnalysis(Response.json(result))
-  await screen.findByRole('heading',{name:'Review suggestions'})
-  assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).value,'My title')
-  fireEvent.click(screen.getByRole('button',{name:'Apply selected suggestions'}))
-  assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).value,'My title')
+  await screen.findByText('Details filled in')
+  assert.equal(screen.getByRole('region',{name:'AI listing assistant'}).getAttribute('aria-busy'),'false')
+  assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).value,'Suggested chair')
+  assert.equal(screen.queryByRole('button',{name:'Apply selected suggestions'}),null)
+  fireEvent.change(screen.getByLabelText('Listing title'),{target:{value:'My title'}})
   assert.equal((screen.getByLabelText('Asking price ($)',{exact:true}) as HTMLInputElement).value,'40.50')
-  assert.equal((screen.getByLabelText('Condition',{exact:true}) as HTMLSelectElement).value,'good')
+  assert.equal((screen.getByLabelText('Condition',{exact:true}) as HTMLSelectElement).value,'fair')
   assert.equal((screen.getByLabelText('Description',{exact:true}) as HTMLTextAreaElement).value,'Wooden chair\nScratch')
   fireEvent.change(screen.getByLabelText('Asking price ($)',{exact:true}),{target:{value:'44'}})
   fireEvent.click(screen.getByRole('button',{name:'Publish listing'}))
   await waitFor(()=>assert.equal(published?.price,'44'))
   assert.equal(published?.title,'My title')
 })
+test('automatic analysis preserves fields edited while the request is pending',async () => {
+  setup(); await upload()
+  fireEvent.click(screen.getByRole('button',{name:'Analyze photo'}))
+  fireEvent.change(screen.getByLabelText('Listing title'),{target:{value:'My newer title'}})
+  fireEvent.change(screen.getByLabelText('Asking price ($)',{exact:true}),{target:{value:'55'}})
+  resolveAnalysis(Response.json(result))
+  await screen.findByText('Details filled in')
+  assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).value,'My newer title')
+  assert.equal((screen.getByLabelText('Asking price ($)',{exact:true}) as HTMLInputElement).value,'55')
+  assert.equal((screen.getByLabelText('Description',{exact:true}) as HTMLTextAreaElement).value,'Wooden chair\nScratch')
+  assert.equal((screen.getByLabelText('Condition score (0–10)') as HTMLInputElement).value,'6')
+})
+
 test('profile changes discard an in-flight result',async () => {
   setup(); await upload()
   fireEvent.click(screen.getByRole('button',{name:'Analyze photo'}))
@@ -269,7 +319,7 @@ test('profile changes discard an in-flight result',async () => {
   render(<SellerView />)
   resolveAnalysis(Response.json(result))
   await screen.findByRole('heading',{name:'maya’s furniture'})
-  assert.equal(screen.queryByRole('heading',{name:'Review suggestions'}),null)
+  assert.equal(screen.queryByText('Details filled in'),null)
 })
 test('photo replacement discards an in-flight result',async () => {
   setup(); await upload()
@@ -278,7 +328,7 @@ test('photo replacement discards an in-flight result',async () => {
   await upload()
   finish(Response.json(result))
   await waitFor(()=>assert.ok(screen.getByRole('button',{name:'Analyze photo'})))
-  assert.equal(screen.queryByRole('heading',{name:'Review suggestions'}),null)
+  assert.equal(screen.queryByText('Details filled in'),null)
 })
 test('provider failure leaves manual publishing available',async () => {
   setup(); await upload()
@@ -287,10 +337,12 @@ test('provider failure leaves manual publishing available',async () => {
   await screen.findByRole('alert')
   assert.equal((screen.getByRole('button',{name:'Publish listing'}) as HTMLButtonElement).disabled,false)
 })
-test('no usable suggestions cannot be applied',async () => {
+test('empty analysis leaves the form usable without an apply step',async () => {
   setup(); await upload()
   fireEvent.click(screen.getByRole('button',{name:'Analyze photo'}))
   resolveAnalysis(Response.json({...result,title:null,description:null,category:null,condition:null,condition_score:null,visible_issues:[],suggested_price_min:null,suggested_price_max:null}))
-  await screen.findByRole('heading',{name:'Review suggestions'})
-  assert.equal((screen.getByRole('button',{name:'Apply selected suggestions'}) as HTMLButtonElement).disabled,true)
+  await screen.findByText('No changes')
+  assert.equal(screen.queryByRole('button',{name:'Apply selected suggestions'}),null)
+  assert.equal((screen.getByLabelText('Listing title') as HTMLInputElement).value,'')
+  assert.equal((screen.getByRole('button',{name:'Publish listing'}) as HTMLButtonElement).disabled,false)
 })
