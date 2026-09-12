@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { Step, Steps, useIsActivePage, useSlidePageNumber } from '@open-slide/core';
+import { useIsActivePage, useSlidePageNumber } from '@open-slide/core';
 import demoPoster from './assets/movein-demo-poster.png';
 const demoVideo = new URL('./assets/movein-demo.mp4', import.meta.url).href;
 import type { DesignSystem, Page, SlideMeta, SlideTransition } from '@open-slide/core';
@@ -75,9 +75,7 @@ const Arrival: Page = () => <Frame label="Built by Snack Overflow">
     <p style={{ fontFamily: 'var(--osd-font-display)', fontSize: 76, lineHeight: 1.12, letterSpacing: -2, margin: 0 }}>Secondhand furniture,<br/>simplified.</p>
   </div>
   <div style={{ position: 'absolute', right: 120, top: 205 }}><Room/></div>
-  <div style={{ position: 'absolute', left: 120, right: 120, top: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${line}`, paddingTop: 36, fontSize: 38, color: accent }}>
-    <span>Save time</span><span aria-hidden="true" style={{ color: muted }}>·</span><span>Save money</span><span aria-hidden="true" style={{ color: muted }}>·</span><span>Optimize bundles &amp; routes</span>
-  </div>
+
 </Frame>;
 
 function ValueIcon({ kind }: { kind: 'time' | 'money' | 'route' }) {
@@ -91,36 +89,43 @@ function ValueCard({ kind, title, children }: { kind: 'time' | 'money' | 'route'
   return <div style={{ background: soft, borderRadius: 'var(--osd-radius)', padding: '40px 34px', boxSizing: 'border-box', height: 452 }}>
     <div style={{ color: accent }}><ValueIcon kind={kind}/></div>
     <h3 style={{ fontSize: 43, fontWeight: 500, letterSpacing: -1, margin: '28px 0 30px' }}>{title}</h3>
-    <div style={{ fontSize: 32, lineHeight: 1.5, color: muted }}>{children}</div>
+    <ul style={{ fontSize: 32, lineHeight: 1.5, color: muted, margin: 0, paddingLeft: 28, listStyleType: 'disc', listStylePosition: 'outside', display: 'grid', gap: 10 }}>{children}</ul>
   </div>;
 }
 const Problem: Page = () => <Frame label="Less effort. More value. A feasible pickup plan.">
   <Heading>What we optimize</Heading>
   <div style={{ position: 'absolute', left: 120, right: 120, top: 345, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }}>
-    <ValueCard kind="time" title="Time"><div>Buyers: less searching.</div><div>Sellers: easier listing.</div><div>Coordinated pickups.</div></ValueCard>
-    <ValueCard kind="money" title="Money"><div>Buy within budget.</div><div>Turn unused furniture<br/>into cash.</div></ValueCard>
-    <ValueCard kind="route" title="Bundles & routes"><div>Categories, budget, capacity.</div><div>An eligible seller driver.</div><div>Planned pickup order.</div></ValueCard>
+    <ValueCard kind="time" title="Time"><li>Less searching for buyers</li><li>Easier listing for sellers</li><li>Coordinated pickups</li></ValueCard>
+    <ValueCard kind="money" title="Money"><li>Buy within budget</li><li>Sell unused furniture</li></ValueCard>
+    <ValueCard kind="route" title="Bundles & routes"><li>Match furniture needs</li><li>Find a driver with space</li><li>Plan the pickup order</li></ValueCard>
   </div>
   <div style={{ position: 'absolute', left: 120, top: 850, fontSize: 34, color: accent }}>Let’s see it in action. <span aria-hidden="true">→</span></div>
 </Frame>;
 
-function Stage({ tag, title, children }: { tag: string; title: string; children: ReactNode }) {
-  return <div style={{ width: 752, height: 345, boxSizing: 'border-box', borderTop: `3px solid ${accent}`, padding: '30px 0' }}>
-    <Label>{tag}</Label><h3 style={{ fontSize: 53, margin: '22px 0 24px', fontWeight: 500, letterSpacing: -1 }}>{title}</h3>
-    <div style={{ fontSize: 33, lineHeight: 1.65, color: muted }}>{children}</div>
+function FlowNode({ tag, title, technology, icon, children }: { tag: string; title: string; technology: ReactNode; icon: 'request' | 'bundle' | 'route'; children: ReactNode }) {
+  return <div style={{ position: 'relative', width: 500, height: 490, padding: 30, boxSizing: 'border-box', background: soft, borderRadius: 'var(--osd-radius)' }}>
+    <Label>{tag}</Label>
+    <svg width="84" height="64" viewBox="0 0 130 100" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', top: 24, right: 24, color: accent }} aria-hidden="true">
+      {icon === 'request' && <><rect x="22" y="5" width="82" height="88" rx="8"/><path d="M38 29l5 5 9-11M64 28h23M38 53l5 5 9-11M64 52h23M38 77l5 5 9-11M64 76h23"/></>}
+      {icon === 'bundle' && <><rect x="8" y="10" width="45" height="32" rx="5"/><rect x="65" y="10" width="45" height="32" rx="5"/><rect x="8" y="54" width="45" height="32" rx="5"/><rect x="65" y="54" width="45" height="32" rx="5"/><path d="M19 26h23M87 19v14M77 26h21M20 66h21v10H20zM76 68l7 7 16-14"/></>}
+      {icon === 'route' && <><circle cx="15" cy="74" r="9"/><circle cx="58" cy="26" r="9"/><path d="M24 74h23a14 14 0 000-28H30a10 10 0 010-20h19M67 26h30v34M80 76l17-15 18 15v18H80zM93 94V80h9v14"/></>}
+    </svg>
+    <h3 style={{ fontSize: 43, lineHeight: 1.15, minHeight: 99, fontWeight: 600, letterSpacing: -1, margin: '36px 0 12px', color: accent }}>{technology}</h3>
+    <div style={{ fontSize: 31, fontWeight: 600, marginBottom: 12 }}>{title}</div>
+    <ul style={{ fontSize: 28, lineHeight: 1.5, color: muted, margin: '20px 0 0', paddingLeft: 26, listStyleType: 'disc', listStylePosition: 'outside', display: 'grid', gap: 12 }}>{children}</ul>
   </div>;
 }
 const Engine: Page = () => <Frame label="Two-stage optimization / OR-Tools CP-SAT + Routing">
-  <Heading>Choose the furniture.<br/>Plan the pickup.</Heading>
-  <div style={{ position: 'absolute', top: 425, left: 120, right: 120 }}>
-    <Steps>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Stage tag="01 / CP-SAT" title="Select feasible bundles">Requested categories · Available items<br/>Furniture budget · Driver + capacity</Stage>
-        <div style={{ fontSize: 55, color: muted, paddingTop: 120 }}>→</div>
-        <Stage tag="02 / ROUTING" title="Optimize each pickup plan">Compare eligible drivers<br/>Order seller stops → Student’s home</Stage>
-      </div>
-      <Step><div style={{ background: soft, borderRadius: 'var(--osd-radius)', padding: '28px 38px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}><span style={{ fontSize: 34 }}>Up to 10 candidate bundles</span><span style={{ fontSize: 36 }}>→</span><span style={{ fontSize: 34 }}>Re-rank by preference</span><span style={{ fontSize: 36 }}>→</span><strong style={{ fontSize: 36 }}>Up to 3 options</strong></div></Step>
-    </Steps>
+  <Heading>The technology behind MoveIn.</Heading>
+  <div style={{ position: 'absolute', top: 300, left: 120, right: 120 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <FlowNode tag="01 / UNDERSTAND" technology={<>Grok<br/>by xAI</>} title="Structure user input" icon="request"><li>Text → request fields</li><li>Photo → listing suggestions</li><li>Review before applying</li></FlowNode>
+      <span aria-hidden="true" style={{ fontSize: 48, color: accent }}>→</span>
+      <FlowNode tag="02 / SELECT" technology={<>Google OR-Tools<br/>CP-SAT</>} title="Select furniture bundles" icon="bundle"><li>Use available inventory</li><li>Match categories + budget</li><li>Check driver + capacity</li></FlowNode>
+      <span aria-hidden="true" style={{ fontSize: 48, color: accent }}>→</span>
+      <FlowNode tag="03 / ROUTE" technology={<>OR-Tools Routing<br/>+ Mapbox</>} title="Plan the pickup order" icon="route"><li>Mapbox → travel times</li><li>Routing solver → stop order</li><li>Directions API → map route</li></FlowNode>
+    </div>
+
   </div>
 </Frame>;
 
@@ -158,7 +163,7 @@ export const notes: string[] = [
   `TARGET 20 SECONDS\nNew city. Empty room. No car. For a student arriving in Pittsburgh, finding secondhand furniture is only the beginning. MoveIn simplifies the next steps: saving time, making the budget go further, and choosing furniture bundles with a pickup plan. Built by Snack Overflow.\n\nThe room is a conceptual illustration. Value statements are not measured savings.`,
   `TARGET 25 SECONDS\nWe focus on three things. Time: less searching and matching for buyers, easier listing and clear pickup plans for sellers. Money: secondhand furniture within the buyer’s budget, and cash for sellers’ unused items. Finally, bundles and routes: matching categories, budget, driver eligibility, and capacity, then planning the pickup order. Let’s see it in action.\n\nFurniture budget excludes delivery fees. Do not claim measured savings, the lowest total price, or a globally optimal route. Algorithm details follow the demo.`,
   `CONTINUOUS VIDEO DEMO — ABOUT 61 SECONDS\nThe video starts automatically and plays both scenarios. Native controls support pause, replay and scrubbing. Wait for it to finish, then press Right to advance to the technology page.\nScenario 1: type a natural-language request; Auto-fill directly updates the buyer form. Build a bundle, review the route, choose it and confirm the reservation. Switch to Jordan and show that same order in Deliveries.\nScenario 2: upload a furniture photo, run Grok analysis, review and select suggested fields, then apply them to the listing form.\nRecorded from the real app on September 12, 2026, with independent local demo inventory and live AI/Mapbox responses. Cursor and camera motion are edited; idle waits are shortened. Buyer total in this run: $210 furniture + $12.75 delivery = $222.75. A demo reservation was created only in the isolated database. No payment or listing publication occurred. Photo price is an AI estimate, not researched pricing.`,
-  `TARGET 35 SECONDS\nWe turn those decisions into a constrained optimization problem. First, OR-Tools CP-SAT selects furniture bundles that cover every requested category, stay within the furniture budget, and have an eligible seller driver with enough capacity. Then we optimize pickup routes for candidate bundles and rank the results using travel time, delivery cost, and the buyer’s preference.\n\nPress Right once to reveal candidate-to-result pipeline, then again to advance.\n\nQ&A: Selected seller must drive; capacity uses abstract size units. Candidate generation and routing are separate, bounded stages, not a guarantee of global optimality. AI supports input and listing suggestions; it does not choose the final bundles.`,
+  `TARGET 35 SECONDS\nWe turn those decisions into a constrained optimization problem. First, OR-Tools CP-SAT selects furniture bundles that cover every requested category, stay within the furniture budget, and have an eligible seller driver with enough capacity. Then we optimize pickup routes for candidate bundles and rank the results using travel time, delivery cost, and the buyer’s preference.\n\nRead the diagram from left to right: Grok structures buyer requests and suggests seller listing fields for user review. Google OR-Tools CP-SAT selects feasible bundles from inventory. Mapbox supplies road travel times to the OR-Tools Routing solver, which orders pickup stops; Mapbox Directions supplies the displayed road geometry. Press Right to advance.\n\nQ&A: Selected seller must drive; capacity uses abstract size units. Candidate generation and routing are separate, bounded stages, not a guarantee of global optimality. AI supports input and listing suggestions; it does not choose the final bundles.`,
   `TARGET 25 SECONDS\nFor students without cars, getting furniture home is part of finding furniture. MoveIn brings item selection, transport capacity, and pickup planning into one flow—so an empty room becomes a practical plan. We’re Snack Overflow.\n\nThe room is a conceptual illustration, not a claim of completed delivery. No measured savings are claimed in this draft. Later, add a validated example or comparison only after the demo dataset is fixed.\n\nTotal planned duration: about 2:46, with about 14 seconds of buffer inside the competition’s 3-minute presentation-plus-demo limit.`,
 ];
 export const meta: SlideMeta = { title: 'MoveIn — Built by Snack Overflow', createdAt: '2026-09-12T14:46:28.883Z' };
