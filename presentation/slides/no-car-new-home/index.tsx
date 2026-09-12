@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useIsActivePage, useSlidePageNumber } from '@open-slide/core';
-import demoPoster from './assets/movein-demo-poster.png';
-const demoVideo = new URL('./assets/movein-demo.mp4', import.meta.url).href;
+const demoLink = 'https://drive.google.com/file/d/1HU0wOV75faEtrV6h2MZS_6Tz4ZzQmnRP/view';
+const demoVideo = demoLink.replace('/view', '/preview');
 import type { DesignSystem, Page, SlideMeta, SlideTransition } from '@open-slide/core';
 
 export const design: DesignSystem = {
@@ -129,25 +128,22 @@ const Engine: Page = () => <Frame label="Two-stage optimization / OR-Tools CP-SA
   </div>
 </Frame>;
 
-// A continuous recording of the real app, with an edited camera and cursor.
+// Export and thumbnail mounts are inactive; PDF keeps the ordinary anchor link.
 const Demo: Page = () => {
   const active = useIsActivePage();
-  const video = useRef<HTMLVideoElement>(null);
-  const [needsPlay, setNeedsPlay] = useState(false);
-  useEffect(() => {
-    const element = video.current;
-    if (!element) return;
-    if (active) {
-      element.currentTime = 0;
-      element.play().catch(() => setNeedsPlay(true));
-    } else element.pause();
-    return () => element.pause();
-  }, [active]);
-  return <div style={{ width: '100%', height: '100%', position: 'relative', background: '#FAF9F5' }}>
-    {active ? <video ref={video} src={demoVideo} poster={demoPoster} muted playsInline controls preload="auto" onPlay={() => setNeedsPlay(false)} aria-label="MoveIn demo: buyer auto-fill, bundle reservation, seller delivery and AI photo listing" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}/>
-      : <img src={demoPoster} alt="MoveIn product demo" style={{ width: '100%', height: '100%', objectFit: 'contain' }}/>}
-    {active && needsPlay && <button onClick={() => video.current?.play()} style={{ position: 'absolute', left: 810, top: 485, width: 300, height: 100, background: '#193C32', color: '#F6F3EB', border: 0, borderRadius: 50, fontSize: 32, cursor: 'pointer' }}>Play demo ▶</button>}
+  if (active) return <div style={{ width: '100%', height: '100%', background: '#FAF9F5' }}>
+    <iframe src={demoVideo} title="MoveIn product demo — Google Drive" allow="autoplay; fullscreen" allowFullScreen style={{ width: '100%', height: '100%', border: 0, display: 'block' }}/>
   </div>;
+  return <Frame label="Product demo / Watch online">
+    <div style={{ position: 'absolute', left: 120, top: 240, width: 970 }}>
+      <Label>See MoveIn in action · 1 min 11 sec</Label>
+      <h2 style={{ fontFamily: 'var(--osd-font-display)', fontSize: 112, lineHeight: 1.08, fontWeight: 400, letterSpacing: -4, margin: '36px 0' }}>Your next room.<br/>One simpler move.</h2>
+      <p style={{ fontSize: 34, lineHeight: 1.5, color: muted, margin: '0 0 44px' }}>Watch the product walkthrough.</p>
+      <a href={demoLink} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 24, padding: '24px 38px', borderRadius: 16, background: accent, color: '#F6F3EB', fontSize: 36, textDecoration: 'none' }}><span aria-hidden="true">▶</span> Watch demo</a>
+      <p style={{ fontSize: 26, color: muted, marginTop: 24 }}>Opens in Google Drive · Internet required</p>
+    </div>
+    <div style={{ position: 'absolute', right: 120, top: 230 }}><Room furnished/></div>
+  </Frame>;
 };
 
 const Closing: Page = () => <Frame dark label="Built by Snack Overflow">
@@ -160,11 +156,26 @@ const Closing: Page = () => <Frame dark label="Built by Snack Overflow">
 </Frame>;
 
 export const notes: string[] = [
-  `TARGET 20 SECONDS\nNew city. Empty room. No car. For a student arriving in Pittsburgh, finding secondhand furniture is only the beginning. MoveIn simplifies the next steps: saving time, making the budget go further, and choosing furniture bundles with a pickup plan. Built by Snack Overflow.\n\nThe room is a conceptual illustration. Value statements are not measured savings.`,
-  `TARGET 25 SECONDS\nWe focus on three things. Time: less searching and matching for buyers, easier listing and clear pickup plans for sellers. Money: secondhand furniture within the buyer’s budget, and cash for sellers’ unused items. Finally, bundles and routes: matching categories, budget, driver eligibility, and capacity, then planning the pickup order. Let’s see it in action.\n\nFurniture budget excludes delivery fees. Do not claim measured savings, the lowest total price, or a globally optimal route. Algorithm details follow the demo.`,
-  `CONTINUOUS VIDEO DEMO — ABOUT 61 SECONDS\nThe video starts automatically and plays both scenarios. Native controls support pause, replay and scrubbing. Wait for it to finish, then press Right to advance to the technology page.\nScenario 1: type a natural-language request; Auto-fill directly updates the buyer form. Build a bundle, review the route, choose it and confirm the reservation. Switch to Jordan and show that same order in Deliveries.\nScenario 2: upload a furniture photo, run Grok analysis, review and select suggested fields, then apply them to the listing form.\nRecorded from the real app on September 12, 2026, with independent local demo inventory and live AI/Mapbox responses. Cursor and camera motion are edited; idle waits are shortened. Buyer total in this run: $210 furniture + $12.75 delivery = $222.75. A demo reservation was created only in the isolated database. No payment or listing publication occurred. Photo price is an AI estimate, not researched pricing.`,
-  `TARGET 35 SECONDS\nWe turn those decisions into a constrained optimization problem. First, OR-Tools CP-SAT selects furniture bundles that cover every requested category, stay within the furniture budget, and have an eligible seller driver with enough capacity. Then we optimize pickup routes for candidate bundles and rank the results using travel time, delivery cost, and the buyer’s preference.\n\nRead the diagram from left to right: Grok structures buyer requests and suggests seller listing fields for user review. Google OR-Tools CP-SAT selects feasible bundles from inventory. Mapbox supplies road travel times to the OR-Tools Routing solver, which orders pickup stops; Mapbox Directions supplies the displayed road geometry. Press Right to advance.\n\nQ&A: Selected seller must drive; capacity uses abstract size units. Candidate generation and routing are separate, bounded stages, not a guarantee of global optimality. AI supports input and listing suggestions; it does not choose the final bundles.`,
-  `TARGET 25 SECONDS\nFor students without cars, getting furniture home is part of finding furniture. MoveIn brings item selection, transport capacity, and pickup planning into one flow—so an empty room becomes a practical plan. We’re Snack Overflow.\n\nThe room is a conceptual illustration, not a claim of completed delivery. No measured savings are claimed in this draft. Later, add a validated example or comparison only after the demo dataset is fixed.\n\nTotal planned duration: about 2:46, with about 14 seconds of buffer inside the competition’s 3-minute presentation-plus-demo limit.`,
+  `Introduction
+Imagine arriving in Pittsburgh for a new semester. You unlock your apartment, walk inside, and realize: there's nowhere to sit, nowhere to study, and no furniture to make it feel like home.
+Buying everything new is expensive. Buying secondhand means searching separate listings and figuring out how to transport everything. Meanwhile, students moving out have furniture they need to sell. Both sides need a simpler way to connect.
+That's why we built MoveIn, an app that matches secondhand furniture buyers and sellers through complete furniture bundles.`,
+  `A buyer chooses what they need, their furniture budget, their location, and whether they want delivery or pickup. For example: a desk, chair, TV, and TV stand for under three hundred dollars.
+MoveIn returns up to three bundles to compare, with item details, pickup routes, and any delivery fee shown separately. Buyers can swap individual items and reserve their chosen bundle. Sellers can publish furniture and, if eligible, earn a delivery fee by transporting the bundle.`,
+  `AI Integration
+We integrated xAI's Grok in 3 ways.
+For sellers, photo analysis suggests a title, description, category, visible condition, and a rough price estimate. Sellers review and edit those suggestions before publishing.
+For buyers, natural-language input turns a request like, "I need a desk and chair under two hundred dollars, delivered to Oakland," into editable search preferences.
+Grok image model to generate a picture of the what the bundle might look like in a room. `,
+  `First, we filter listings by category, availability, price, and distance. Then we use Google OR-Tools' CP-SAT constraint solver to select exactly one item per requested category while keeping furniture costs within budget. For delivery, the bundle must include an eligible seller whose vehicle can fit the entire bundle.
+Our CP-SAT model uses binary selection variables and integer-cent budget constraints to maximize a weighted score for condition, price, distance, and seller count.
+
+Second, OR-Tools' routing solver plans the pickup order to reduce travel time. It starts at the seller driver's location and ends at the buyer, or makes a round trip for self-pickup. We then rank feasible bundles by the buyer's preference: balanced, lowest total cost, best condition, or fastest trip.
+Our routing model uses a travel-time matrix, PATH_CHEAPEST_ARC to build an initial route, and GREEDY_DESCENT to improve it within a one-second search limit.
+`,
+  `MoveIn brings furniture discovery, bundle selection, and transportation planning into one experience.
+Our goal is to help buyers furnish an empty apartment affordably, help sellers find buyers, and keep useful furniture in circulation.
+With MoveIn, an empty apartment is the beginning of a home. Thank you.`,
 ];
 export const meta: SlideMeta = { title: 'MoveIn — Built by Snack Overflow', createdAt: '2026-09-12T14:46:28.883Z' };
 export default [Arrival, Problem, Demo, Engine, Closing] satisfies Page[];
