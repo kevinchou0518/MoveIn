@@ -2,6 +2,16 @@
 
 An end-to-end hackathon demo for finding **fulfillable secondhand furniture bundles**. A buyer chooses categories, a furniture budget, a location, delivery or self-pickup, and a ranking preference. The app selects up to three bundles, assigns an eligible seller driver, and computes pickup routes. Sellers upload photos, publish editable listing details, and see delivery plans after a buyer reserves a bundle.
 
+## Demo
+
+**Buyer flow** — describe what you need, compare three routed bundles, reserve one.
+
+![Buyer demo](docs/demo/buyer.gif)
+
+**Seller flow** — upload a photo, let AI fill the listing, publish, and start an assigned delivery.
+
+![Seller demo](docs/demo/seller.gif)
+
 ## Run locally
 
 Requires Python **3.12–3.14**, Node **22.12+**, and npm. Verified here on Python 3.14 and Node 25. Dependencies require internet during initial setup.
