@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from app.catalog import builtin_categories
 from app.db.store import LocalStore
 from app.main import create_app
-from app.schemas import BundleRequest, utcnow
+from app.schemas import BundleRequest, Location, utcnow
 from app.services.bundle_service import generate_bundles
 from app.services.discovery_ai import DiscoveryAI, ParseRequest, ResearchRequest
 from app.services.route_optimizer import MapProvider
@@ -124,14 +124,56 @@ def ai_response(value, citations=()):
     return httpx.Response(200, json={'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps(value), 'annotations': [{'type': 'url_citation', 'url': c} for c in citations]}]}]})
 
 
+class FakeGeocoder:
+    def __init__(self, found=None, fail=False, matched=None): self.found, self.fail, self.matched, self.queries = found or [], fail, matched, []
+    def resolve(self, query):
+        self.queries.append(query)
+        if self.fail: raise HTTPException(503, 'Address search is unavailable.')
+        location = self.found[0] if self.found else None
+        return location, (self.matched or location.label) if location else None
+
+
 def test_buyer_parser_preserves_missing_fields_and_filters_unknowns():
     payload = {'categories': ['chair', 'made_up'], 'budget': 125, 'buyer_has_car': None, 'location_text': 'Oakland', 'ranking': None, 'explanations': []}
     def handler(request):
         data = json.loads(request.content)
         assert data['store'] is False and 'tools' not in data
+        assert 'buyer_location' not in data['text']['format']['schema']['properties']
         return ai_response(payload)
-    draft = DiscoveryAI('test', transport=httpx.MockTransport(handler)).parse(ParseRequest(text='chair and something else'), builtin_categories())
+    oakland = Location(lat=40.443, lng=-79.943, label='Oakland, Pittsburgh, PA')
+    geocoder = FakeGeocoder([oakland, Location(lat=37.8, lng=-122.27, label='Oakland, CA')])
+    draft = DiscoveryAI('test', transport=httpx.MockTransport(handler)).parse(ParseRequest(text='chair and something else'), builtin_categories(), geocoder)
     assert draft.categories == ['chair'] and draft.buyer_has_car is None and draft.ranking is None and draft.explanations
+    assert geocoder.queries == ['Oakland'] and draft.location_text == 'Oakland' and draft.buyer_location == oakland
+    assert draft.explanations == ['Some requested categories are not available in the catalog.']
+
+
+def test_buyer_parser_keeps_stated_place_when_map_matches_only_the_street():
+    payload = {'categories': ['chair'], 'budget': None, 'buyer_has_car': True, 'location_text': 'Kenmawr, Shady Avenue', 'ranking': None, 'explanations': []}
+    street = 'Shady Avenue, Pittsburgh, Pennsylvania 15217, United States'
+    geocoder = FakeGeocoder([Location(lat=40.45, lng=-79.92, label='Kenmawr, Shady Avenue, Pittsburgh, Pennsylvania 15217, United States')], matched=street)
+    draft = DiscoveryAI('test', transport=httpx.MockTransport(lambda r: ai_response(payload))).parse(ParseRequest(text='chair, I live in Kenmawr, Shady Avenue'), builtin_categories(), geocoder)
+    assert draft.buyer_location.label.startswith('Kenmawr, Shady Avenue') and (draft.buyer_location.lat, draft.buyer_location.lng) == (40.45, -79.92)
+    assert draft.explanations == [f'The map does not list that place, so its position uses the closest match: {street}. Edit the location if that is wrong.']
+
+
+@pytest.mark.parametrize('geocoder', [FakeGeocoder(fail=True), FakeGeocoder([]), None])
+def test_buyer_parser_falls_back_to_location_text(geocoder):
+    payload = {'categories': ['chair'], 'budget': None, 'buyer_has_car': False, 'location_text': 'Nowhere', 'ranking': None, 'explanations': []}
+    draft = DiscoveryAI('test', transport=httpx.MockTransport(lambda r: ai_response(payload))).parse(ParseRequest(text='chair near Nowhere'), builtin_categories(), geocoder)
+    assert draft.buyer_location is None and draft.location_text == 'Nowhere' and draft.buyer_has_car is False
+    assert bool(draft.explanations) == (geocoder is not None)
+
+
+def test_buyer_parse_endpoint_skips_geocoding_without_location(api):
+    client, _ = api
+    payload = {'categories': ['desk'], 'budget': 80, 'buyer_has_car': True, 'location_text': None, 'ranking': 'lowest_cost', 'explanations': []}
+    client.app.state.discovery = DiscoveryAI('test', transport=httpx.MockTransport(lambda r: ai_response(payload)))
+    client.app.state.geocoder = FakeGeocoder(fail=True)
+    response = client.post('/buyer/parse', json={'text': 'cheap desk, I have a car'})
+    assert response.status_code == 200, response.text
+    assert response.json() == {**payload, 'buyer_location': None}
+    assert client.app.state.geocoder.queries == []
 
 @pytest.mark.parametrize('used_count', [2, 3])
 def test_price_range_requires_three_cited_used_asking_prices(used_count):

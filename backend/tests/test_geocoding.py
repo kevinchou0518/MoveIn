@@ -33,3 +33,29 @@ def test_provider_failures(code,payload):
     g=Geocoder('secret',httpx.MockTransport(lambda r:httpx.Response(code,json=payload)))
     with pytest.raises(HTTPException) as e:g.search('address')
     assert e.value.status_code==503 and 'secret' not in e.value.detail
+
+
+def feature(name, place, kind, full=None, coords=(-79.92, 40.45)):
+    return {'properties': {'name': name, 'place_formatted': place, 'feature_type': kind, **({'full_address': full} if full else {})}, 'geometry': {'coordinates': list(coords)}}
+
+
+@pytest.mark.parametrize('text,features,label,matched', [
+    ('Kenmawr, Shady Avenue', [feature('Shady Avenue', 'Pittsburgh, Pennsylvania 15217, United States', 'street', 'Shady Avenue, Pittsburgh, Pennsylvania 15217, United States')],
+     'Kenmawr, Shady Avenue, Pittsburgh, Pennsylvania 15217, United States', 'Shady Avenue, Pittsburgh, Pennsylvania 15217, United States'),
+    ('shady avenue', [feature('Shady Avenue', 'Pittsburgh, Pennsylvania 15217, United States', 'street', 'Shady Avenue, Pittsburgh, Pennsylvania 15217, United States')],
+     'Shady Avenue, Pittsburgh, Pennsylvania 15217, United States', 'Shady Avenue, Pittsburgh, Pennsylvania 15217, United States'),
+    ('Kenmawr 401 Shady Ave', [feature('401 Shady Avenue', 'Pittsburgh, Pennsylvania 15206, United States', 'address', '401 Shady Avenue, Pittsburgh, Pennsylvania 15206, United States')],
+     '401 Shady Avenue, Pittsburgh, Pennsylvania 15206, United States', '401 Shady Avenue, Pittsburgh, Pennsylvania 15206, United States'),
+    ('Oakland', [feature('Oakland', 'Pittsburgh, Pennsylvania, United States', 'neighborhood', 'Oakland, Pittsburgh, Pennsylvania, United States'), feature('Oakland', 'California, United States', 'place')],
+     'Oakland, Pittsburgh, Pennsylvania, United States', 'Oakland, Pittsburgh, Pennsylvania, United States'),
+])
+def test_resolve_keeps_buyer_wording_for_inexact_matches(text, features, label, matched):
+    g = Geocoder('secret', httpx.MockTransport(lambda r: httpx.Response(200, json={'features': features})))
+    location, found = g.resolve(text)
+    assert (location.lat, location.lng) == (40.45, -79.92) and location.label == label and found == matched
+
+
+def test_resolve_without_matches_or_provider():
+    assert Geocoder('secret', httpx.MockTransport(lambda r: httpx.Response(200, json={'features': []}))).resolve('nowhere') == (None, None)
+    with pytest.raises(HTTPException) as e: Geocoder('').resolve('anywhere')
+    assert e.value.status_code == 503

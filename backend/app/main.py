@@ -86,7 +86,7 @@ def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geo
 
     @app.post('/buyer/parse')
     def parse_buyer(payload: ParseRequest, request: Request):
-        return request.app.state.discovery.parse(payload,request.app.state.store.categories())
+        return request.app.state.discovery.parse(payload,request.app.state.store.categories(),request.app.state.geocoder)
 
     @app.post('/listings/research-price')
     def research_price(payload: ResearchRequest, request: Request):

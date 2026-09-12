@@ -4,18 +4,22 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import HTTPException
 from pydantic import Field
-from app.schemas import Model, Category, Ranking, utcnow
+from app.schemas import Model, Category, Ranking, Location, utcnow
 
 class ParseRequest(Model):
     text: str = Field(min_length=3,max_length=2000)
 
-class BuyerDraft(Model):
+class ParsedText(Model):
+    """Strict schema the model fills in; coordinates are added by geocoding afterwards."""
     categories: list[Category] | None = Field(max_length=6)
     budget: float | None = Field(gt=0,le=100000)
     buyer_has_car: bool | None
     location_text: str | None = Field(max_length=200)
     ranking: Ranking | None
     explanations: list[str] = Field(max_length=10)
+
+class BuyerDraft(ParsedText):
+    buyer_location: Location | None = None
 
 class ResearchRequest(Model):
     category: Category
@@ -60,14 +64,20 @@ class DiscoveryAI:
         except httpx.TimeoutException: raise HTTPException(504,'AI took too long. Retry or continue manually.') from None
         except (httpx.HTTPError,ValueError,TypeError,KeyError,AttributeError): raise HTTPException(502,'AI could not provide reliable results. Retry or continue manually.') from None
 
-    def parse(self,payload,categories):
-        draft,_=self.request('Extract only explicitly stated buyer requirements. Use catalog IDs. Do not invent missing values; use null. Budget is furniture-only; flag ambiguous total budgets. Map stated ranking priorities to balanced/lowest_cost/best_condition/fastest_trip. Unknown categories, quantities greater than one, unsupported preferences and ambiguity must appear in explanations. Do not create categories.',{'text':payload.text,'catalog':categories},BuyerDraft)
+    def parse(self,payload,categories,geocoder=None):
+        parsed,_=self.request('Extract only explicitly stated buyer requirements. Use catalog IDs. Do not invent missing values; use null. Budget is furniture-only; flag ambiguous total budgets. Map stated ranking priorities to balanced/lowest_cost/best_condition/fastest_trip. Unknown categories, quantities greater than one, unsupported preferences and ambiguity must appear in explanations. Do not create categories.',{'text':payload.text,'catalog':categories},ParsedText)
+        draft=BuyerDraft(**parsed.model_dump())
         known={c['id'] for c in categories}
         if draft.categories:
             unknown=[c for c in draft.categories if c not in known]
             draft.categories=list(dict.fromkeys(c for c in draft.categories if c in known)) or None
             if unknown: draft.explanations.append('Some requested categories are not available in the catalog.')
         if draft.budget is not None: draft.budget=round(draft.budget,2)
+        if draft.location_text and geocoder is not None:
+            try: draft.buyer_location,matched=geocoder.resolve(draft.location_text)
+            except HTTPException: draft.buyer_location,matched=None,None
+            if not draft.buyer_location: draft.explanations.append('Could not find that address automatically. Search for it below.')
+            elif matched!=draft.buyer_location.label: draft.explanations.append(f'The map does not list that place, so its position uses the closest match: {matched}. Edit the location if that is wrong.')
         return draft
 
     def research(self,payload):

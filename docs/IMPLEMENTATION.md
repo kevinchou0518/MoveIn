@@ -69,7 +69,7 @@ All JSON; validation errors use FastAPI's `detail` array; business errors use `d
 | GET /deliveries/{seller_id} | — | Order[] for the selected delivery lead |
 | GET /categories | — | Shared Category[] |
 | POST /categories | `{name}` | 201 idempotent Category |
-| POST /buyer/parse | `{text}` | Nullable buyer requirement draft and explanations |
+| POST /buyer/parse | `{text}` | Nullable buyer requirement draft with geocoded `buyer_location` and explanations |
 | POST /listings/research-price | title, category, condition, optional brand/model | Up to five cited comparables and optional used-asking range |
 | GET /bundles/{id} | — | Stored bundle plus nullable order ID |
 | POST /bundles/{id}/alternatives | `{listing_id}` | Up to three new bundle versions with exactly one replacement |
@@ -110,6 +110,6 @@ Shared buyer/seller LocationPicker replaces latitude/longitude fields with expli
 - Sellers explicitly create flexible categories. Names are whitespace/case normalized and receive deterministic IDs; `office_chair` remains a `chair` alias. Buyers search the shared catalog and select up to six unique categories.
 - Ranking changes deterministic optimizer weights and route reranking. Every returned option still satisfies budget, availability, radius, driver membership, and capacity constraints. AI never chooses inventory, drivers, or routes.
 - A swap creates a new stored bundle and changes exactly one listing in the same category. Retained items, price, current availability, radius, delivery leadership, capacity, and route feasibility are rechecked. The source bundle is never mutated.
-- Buyer text parsing returns nullable fields only. Every proposed field requires review and explicit selection; address text clears coordinates until the buyer selects a geocoded result.
+- Buyer text parsing returns nullable fields only and the frontend applies every non-null field (categories, budget, transportation, location, ranking) to the form immediately; the buyer can still edit anything before building. `location_text` is geocoded server-side (first Mapbox result, Pittsburgh proximity bias) and returned as `buyer_location`. When the match is only a street or area rather than an exact address, the label keeps the buyer’s own wording ahead of the matched area (e.g. "Kenmawr, Shady Avenue, Pittsburgh, Pennsylvania 15217") and an explanation names the map match used. When geocoding is unavailable or finds nothing, `buyer_location` is null, an explanation is added, and the text only pre-fills the address search with coordinates cleared.
 - Price research makes at most five xAI web-search tool calls with a 60-second timeout and no retry. Only comparables whose URLs appear in response citations are displayed. Used asking, sold, and new retail evidence stay labeled; a range is computed only from three or more cited used asking prices.
 - The eight supplied photos are normalized to at most 1600 px and stored without EXIF metadata. Their listing facts are explicitly fictional. Migration targets only unchanged seed IDs and preserves reservation state and historical snapshots.

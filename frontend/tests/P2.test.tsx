@@ -53,16 +53,20 @@ test('receipt reload shows persisted order and Find another retains preferences'
   assert.deepEqual(fresh, request)
 })
 
-test('buyer AI applies only checked fields and requires address review', async () => {
-  let accepted: unknown
-  globalThis.fetch = (async () => Response.json({ categories: ['chair'], budget: 100, buyer_has_car: false, location_text: 'Oakland', ranking: null, explanations: [] })) as typeof fetch
-  render(<BuyerAssistant onApply={d => { accepted = d }} />)
+test('buyer AI auto-applies parsed fields including the geocoded location', async () => {
+  const applied: unknown[] = []
+  const draft = { categories: ['chair'], budget: 100, buyer_has_car: false, location_text: 'Oakland', buyer_location: { lat: 40.443, lng: -79.943, label: 'Oakland, Pittsburgh' }, ranking: null, explanations: ['Quantities are not supported.'] }
+  globalThis.fetch = (async () => Response.json(draft)) as typeof fetch
+  render(<BuyerAssistant onApply={d => { applied.push(d) }} />)
   fireEvent.click(screen.getByText('Describe what you need'))
   fireEvent.change(screen.getByLabelText('Your shopping request'), { target: { value: 'Chair for $100 in Oakland' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Review suggested requirements' }))
-  fireEvent.click(await screen.findByLabelText(/Furniture budget/))
-  fireEvent.click(screen.getByRole('button', { name: 'Apply selected requirements' }))
-  assert.deepEqual(accepted, { categories: null, budget: 100, buyer_has_car: null, location_text: null, ranking: null, explanations: [] })
+  fireEvent.click(screen.getByRole('button', { name: 'Fill in my requirements' }))
+  await screen.findByText('Applied to the form below')
+  assert.deepEqual(applied, [draft])
+  assert.equal(screen.queryByRole('checkbox'), null)
+  assert.equal(screen.queryByRole('button', { name: 'Apply selected requirements' }), null)
+  assert.ok(screen.getByText('Oakland, Pittsburgh'))
+  assert.ok(screen.getByText('Quantities are not supported.'))
 })
 
 test('price research needs explicit apply and field edits invalidate results', async () => {

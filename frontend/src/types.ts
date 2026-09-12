@@ -14,6 +14,6 @@ export const money = (n: number) => new Intl.NumberFormat('en-US', { style: 'cur
 
 export type AnalysisResult = { proposed_category?: string | null; title: string | null; description: string | null; category: Category | null; condition: Listing['condition'] | null; condition_score: number | null; visible_issues: string[]; estimated_product: string | null; suggested_price_min: number | null; suggested_price_max: number | null; confidence: number }
 
-export type BuyerDraft = { categories: string[] | null; budget: number | null; buyer_has_car: boolean | null; location_text: string | null; ranking: Ranking | null; explanations: string[] }
+export type BuyerDraft = { categories: string[] | null; budget: number | null; buyer_has_car: boolean | null; location_text: string | null; buyer_location: Location | null; ranking: Ranking | null; explanations: string[] }
 export const rankingNames: Record<Ranking,string> = { balanced:'Balanced', lowest_cost:'Lowest total cost', best_condition:'Best condition', fastest_trip:'Fastest trip' }
 export type ResearchResult = { comparables: {title:string;url:string;price:number;currency:string;kind:string;condition:string|null}[]; researched_at:string;price_min:number|null;price_max:number|null;summary:string }
