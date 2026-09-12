@@ -4,7 +4,6 @@ import { api, post } from './api'
 import { money } from './types'
 import type { AnalysisResult, Category, Listing, Seller, Location } from './types'
 import LocationPicker from './LocationPicker'
-import PriceResearch from './PriceResearch'
 import CategoryPicker from './CategoryPicker'
 import { categoryIcon } from './catalog'
 import { navigate } from './navigation'
@@ -195,7 +194,6 @@ export default function SellerView() {
       <div className="field-row"><CategoryPicker value={category} onChange={setCategory} proposed={analysis?.proposed_category} /><label>Asking price ($)<input required type="number" min="0" max="100000" step="0.01" placeholder="45" value={price} onChange={e => setPrice(e.target.value)} /></label></div>
       <label>Description<textarea rows={3} placeholder="Dimensions, wear, and anything a new owner should know." maxLength={2000} value={description} onChange={e => setDescription(e.target.value)} /></label>
       <div className="field-row"><label>Condition<select value={condition} onChange={e => { setCondition(e.target.value); setScore(e.target.value === 'like_new' ? '9.5' : e.target.value === 'good' ? '8' : '6') }}><option value="like_new">Like new</option><option value="good">Good</option><option value="fair">Fair</option></select></label><label>Condition score (0–10)<input type="number" required min="0" max="10" step="0.1" value={score} onChange={e => setScore(e.target.value)} /></label></div>
-      <PriceResearch key={sellerId} title={title} category={category} condition={condition} imageUrl={imageUrl} onApply={setPrice} />
       <div className="field-row"><label>Item size<select value={size} onChange={e => setSize(e.target.value)}><option value="1">Small · 1 unit</option><option value="2">Medium · 2 units</option><option value="3">Large · 3 units</option></select></label><label>Available from<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label></div>
       <div className="pickup-settings"><MapPin size={18} /><div><b>Pickup in {seller?.location.label || 'your neighborhood'}</b><p>{seller?.can_drive ? `You offer delivery with a ${seller.vehicle_type} (${seller.vehicle_capacity} units).` : 'Pickup only. Another seller may deliver your item.'}</p></div></div>
       <button className="primary full" disabled={saving || uploading || !seller || pendingListings.has(editing || 'new-listing')}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Publish listing'} <ArrowRight size={17} /></button><p className="fine-print">Your item can be included in complete furniture bundles.</p>
