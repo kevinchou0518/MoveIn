@@ -1,4 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
+import cursorLogo from './assets/cursor.svg';
+import grokLogo from './assets/grok.svg';
+import atlasLogo from './assets/mongodb-atlas.svg';
 import { useIsActivePage, useSlidePageNumber } from '@open-slide/core';
 const demoLink = 'https://drive.google.com/file/d/1HU0wOV75faEtrV6h2MZS_6Tz4ZzQmnRP/view';
 const demoVideo = demoLink.replace('/view', '/preview');
@@ -23,12 +26,12 @@ export const transition: SlideTransition = {
   enter: { duration: 220, delay: 50, easing: 'ease-out', keyframes: [{ opacity: 0 }, { opacity: 1 }] },
 };
 
-function Frame({ children, label, dark = false }: { children: ReactNode; label: string; dark?: boolean }) {
+function Frame({ children, label, dark = false, chapter = 'OPTIMIZATION' }: { children: ReactNode; label: string; dark?: boolean; chapter?: string }) {
   const { current, total } = useSlidePageNumber();
   return <section style={{ width: '100%', height: '100%', boxSizing: 'border-box', position: 'relative', background: dark ? text : bg, color: dark ? bg : text, fontFamily: 'var(--osd-font-body)', padding: 120 }}>
     <div style={{ position: 'absolute', top: 68, left: 120, right: 120, display: 'flex', justifyContent: 'space-between', fontSize: 23, letterSpacing: 2 }}>
       <span>MoveIn <span style={{ opacity: .45 }}> / </span> HACKCMU 2026</span>
-      <span style={{ opacity: .65 }}>OPTIMIZATION</span>
+      <span style={{ opacity: .65 }}>{chapter}</span>
     </div>
     {children}
     <div style={{ position: 'absolute', bottom: 58, left: 120, right: 120, display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${dark ? '#587266' : line}`, paddingTop: 20, fontSize: 23, color: dark ? '#B9CABA' : muted }}>
@@ -77,6 +80,32 @@ const Arrival: Page = () => <Frame label="Built by Snack Overflow">
 
 </Frame>;
 
+function JourneyCard({ number, title, detail, children }: { number: string; title: string; detail: string; children: ReactNode }) {
+  return <div style={{ width: 500, height: 400, boxSizing: 'border-box', padding: 36, background: soft, borderRadius: 'var(--osd-radius)' }}>
+    <Label>{number}</Label>
+    <div style={{ height: 124, display: 'flex', alignItems: 'center', gap: 20, color: accent }}>{children}</div>
+    <h3 style={{ fontSize: 42, fontWeight: 500, letterSpacing: -1, margin: '18px 0 16px' }}>{title}</h3>
+    <p style={{ fontSize: 32, lineHeight: 1.5, color: muted, margin: 0 }}>{detail}</p>
+  </div>;
+}
+
+const Overview: Page = () => <Frame chapter="HOW MOVEIN WORKS" label="Furniture that fits your needs. A plan to bring it home.">
+  <Heading>Your room. One complete plan.</Heading>
+  <div style={{ position: 'absolute', top: 335, left: 120, right: 120, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <JourneyCard number="01 / DESCRIBE" title="Tell us what you need" detail="AI turns your words into preferences.">
+      <svg width="108" height="108" viewBox="0 0 108 108" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 16h80v58H44L24 92V74H14zM30 34h48M30 48h36M30 62h23"/></svg>
+    </JourneyCard>
+    <span aria-hidden="true" style={{ fontSize: 48, color: accent }}>→</span>
+    <JourneyCard number="02 / CHOOSE" title="Choose a bundle" detail="Furniture within your budget.">
+      <Furniture kind="desk" size={106}/><Furniture kind="chair" size={106}/>
+    </JourneyCard>
+    <span aria-hidden="true" style={{ fontSize: 48, color: accent }}>→</span>
+    <JourneyCard number="03 / DELIVER" title="Delivered to your door" detail="A matched driver and an optimized route.">
+      <ValueIcon kind="route"/>
+    </JourneyCard>
+  </div>
+</Frame>;
+
 function ValueIcon({ kind }: { kind: 'time' | 'money' | 'route' }) {
   return <svg width="76" height="76" viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     {kind === 'time' && <><circle cx="40" cy="40" r="28"/><path d="M40 22v20l14 9"/></>}
@@ -98,7 +127,6 @@ const Problem: Page = () => <Frame label="Less effort. More value. A feasible pi
     <ValueCard kind="money" title="Money"><li>Buy within budget</li><li>Sell unused furniture</li></ValueCard>
     <ValueCard kind="route" title="Bundles & routes"><li>Match furniture needs</li><li>Find a driver with space</li><li>Plan the pickup order</li></ValueCard>
   </div>
-  <div style={{ position: 'absolute', left: 120, top: 850, fontSize: 34, color: accent }}>Let’s see it in action. <span aria-hidden="true">→</span></div>
 </Frame>;
 
 function FlowNode({ tag, title, technology, icon, children }: { tag: string; title: string; technology: ReactNode; icon: 'request' | 'bundle' | 'route'; children: ReactNode }) {
@@ -155,11 +183,29 @@ const Closing: Page = () => <Frame dark label="Built by Snack Overflow">
   <div style={{ position: 'absolute', right: 115, top: 334, transform: 'scale(.88)', transformOrigin: 'right center' }}><Room furnished/></div>
 </Frame>;
 
+function Supporter({ logo, name }: { logo: string; name: string }) {
+  return <div style={{ width: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40 }}>
+    <img src={logo} alt={`${name} logo`} style={{ width: 154, height: 154, objectFit: 'contain' }}/>
+    <div style={{ fontSize: 46, fontWeight: 500, letterSpacing: -1 }}>{name}</div>
+  </div>;
+}
+
+const Thanks: Page = () => <Frame chapter="THANK YOU" label="Built by Snack Overflow">
+  <h2 style={{ position: 'absolute', top: 240, left: 120, right: 120, margin: 0, textAlign: 'center', fontFamily: 'var(--osd-font-display)', fontSize: 112, lineHeight: 1.12, fontWeight: 400, letterSpacing: -4 }}>Thanks for your support.</h2>
+  <div style={{ position: 'absolute', top: 510, left: 200, right: 200, display: 'flex', justifyContent: 'space-between' }}>
+    <Supporter logo={cursorLogo} name="Cursor"/>
+    <Supporter logo={grokLogo} name="Grok"/>
+    <Supporter logo={atlasLogo} name="MongoDB Atlas"/>
+  </div>
+</Frame>;
+
 export const notes: string[] = [
   `Introduction
 Imagine arriving in Pittsburgh for a new semester. You unlock your apartment, walk inside, and realize: there's nowhere to sit, nowhere to study, and no furniture to make it feel like home.
 Buying everything new is expensive. Buying secondhand means searching separate listings and figuring out how to transport everything. Meanwhile, students moving out have furniture they need to sell. Both sides need a simpler way to connect.
 That's why we built MoveIn, an app that matches secondhand furniture buyers and sellers through complete furniture bundles.`,
+  `Here is the core experience. Describe the furniture you need and your budget; AI turns that into editable preferences. MoveIn combines listings from local sellers into complete bundles, so you can compare furniture and transportation together. For delivery, MoveIn matches an eligible seller driver whose vehicle fits the whole bundle and optimizes the pickup route ending at your home. Choose and reserve your bundle with the driver and delivery route already planned.
+The key is a complete furniture bundle with a feasible way to bring it home. That is what we optimize next.`,
   `A buyer chooses what they need, their furniture budget, their location, and whether they want delivery or pickup. For example: a desk, chair, TV, and TV stand for under three hundred dollars.
 MoveIn returns up to three bundles to compare, with item details, pickup routes, and any delivery fee shown separately. Buyers can swap individual items and reserve their chosen bundle. Sellers can publish furniture and, if eligible, earn a delivery fee by transporting the bundle.`,
   `AI Integration
@@ -176,6 +222,7 @@ Our routing model uses a travel-time matrix, PATH_CHEAPEST_ARC to build an initi
   `MoveIn brings furniture discovery, bundle selection, and transportation planning into one experience.
 Our goal is to help buyers furnish an empty apartment affordably, help sellers find buyers, and keep useful furniture in circulation.
 With MoveIn, an empty apartment is the beginning of a home. Thank you.`,
+  `And a special thanks to Cursor, Grok, and MongoDB Atlas for supporting our build.`,
 ];
 export const meta: SlideMeta = { title: 'MoveIn — Built by Snack Overflow', createdAt: '2026-09-12T14:46:28.883Z' };
-export default [Arrival, Problem, Demo, Engine, Closing] satisfies Page[];
+export default [Arrival, Overview, Problem, Demo, Engine, Closing, Thanks] satisfies Page[];
