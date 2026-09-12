@@ -150,6 +150,14 @@ def test_buyer_parser_preserves_missing_fields_and_filters_unknowns():
     assert draft.explanations == ['Some requested categories are not available in the catalog.']
 
 
+def test_buyer_parser_drops_notes_about_unmentioned_fields():
+    notes = ['Unknown buyer_has_car', 'Unknown ranking preference', 'Budget not specified', 'quantities not specified', 'Location unclear',
+             'Quantity greater than one requested for chair', 'monitor is not in the catalog', 'Budget may include delivery']
+    payload = {'categories': ['chair'], 'budget': 200, 'buyer_has_car': None, 'location_text': None, 'ranking': None, 'explanations': notes}
+    draft = DiscoveryAI('test', transport=httpx.MockTransport(lambda r: ai_response(payload))).parse(ParseRequest(text='two chairs and a monitor for $200'), builtin_categories())
+    assert draft.explanations == notes[5:]
+
+
 def test_buyer_parser_keeps_stated_place_when_map_matches_only_the_street():
     payload = {'categories': ['chair'], 'budget': None, 'buyer_has_car': True, 'location_text': 'Kenmawr, Shady Avenue', 'ranking': None, 'explanations': []}
     street = 'Shady Avenue, Pittsburgh, Pennsylvania 15217, United States'

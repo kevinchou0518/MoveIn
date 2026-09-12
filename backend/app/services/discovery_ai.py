@@ -1,5 +1,6 @@
 """Reviewable AI drafts and source-backed asking-price research."""
 import json
+import re
 from urllib.parse import urlparse
 import httpx
 from fastapi import HTTPException
@@ -40,6 +41,9 @@ class ResearchOutput(Model):
     comparables: list[Comparable] = Field(max_length=5)
     summary: str = Field(max_length=2000)
 
+MISSING=re.compile(r'\b(unknown|unspecified|missing|unclear|not (?:specified|stated|mentioned|provided|given|indicated))\b',re.I)
+FIELD=re.compile(r'\b(buyer_has_car|has_car|ranking|budget|location(?:_text)?|transportation|car|priority|preference|quantit(?:y|ies))\b',re.I)
+
 class DiscoveryAI:
     def __init__(self,key='',model='grok-4.6',transport=None):
         self.key,self.model,self.transport=key,model,transport
@@ -65,8 +69,10 @@ class DiscoveryAI:
         except (httpx.HTTPError,ValueError,TypeError,KeyError,AttributeError): raise HTTPException(502,'AI could not provide reliable results. Retry or continue manually.') from None
 
     def parse(self,payload,categories,geocoder=None):
-        parsed,_=self.request('Extract only explicitly stated buyer requirements. Use catalog IDs. Do not invent missing values; use null. Budget is furniture-only; flag ambiguous total budgets. Map stated ranking priorities to balanced/lowest_cost/best_condition/fastest_trip. Unknown categories, quantities greater than one, unsupported preferences and ambiguity must appear in explanations. Do not create categories.',{'text':payload.text,'catalog':categories},ParsedText)
+        parsed,_=self.request('Extract only explicitly stated buyer requirements. Use catalog IDs. Do not invent missing values; use null. Budget is furniture-only; flag ambiguous total budgets. Map stated ranking priorities to balanced/lowest_cost/best_condition/fastest_trip. Unknown categories, quantities greater than one, unsupported preferences and ambiguity must appear in explanations, written as short plain-language notes for the buyer. Never add an explanation for a field the buyer simply did not mention. Do not create categories.',{'text':payload.text,'catalog':categories},ParsedText)
         draft=BuyerDraft(**parsed.model_dump())
+        # Fields the buyer did not mention stay unchanged in the form, so notes about them are noise.
+        draft.explanations=[x for x in draft.explanations if not (MISSING.search(x) and FIELD.search(x))]
         known={c['id'] for c in categories}
         if draft.categories:
             unknown=[c for c in draft.categories if c not in known]
