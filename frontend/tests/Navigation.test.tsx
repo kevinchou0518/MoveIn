@@ -16,6 +16,25 @@ const { navigate, backToResults } = await import('../src/navigation')
 const request = { categories: ['chair'], budget: 100, buyer_has_car: true, buyer_location: { lat: 40.44, lng: -79.94, label: 'Oakland' }, radius_miles: 25, ranking: 'best_condition' as const }
 const response = { bundles: [], message: 'Nothing available', diagnostics: { candidate_count: 0, possible_combinations: 0, candidate_bundle_limit: 10, constraints: [], filtered_out: {}, combination_checks: null } }
 afterEach(() => { cleanup(); window.sessionStorage.clear(); window.history.replaceState(null, '', '/buyer') })
+
+test('header selects My orders independently and user switching exists only in Profile', async () => {
+  globalThis.fetch=async url=>String(url).endsWith('/me')?Response.json({sellers:[]}):String(url).includes('/orders?')?Response.json({items:[],total:0,limit:20,offset:0}):Response.json([])
+  render(<App />)
+  assert.equal(screen.queryByLabelText('Current user'),null)
+  fireEvent.click(screen.getByRole('button',{name:'My orders',exact:true}))
+  await screen.findByRole('heading',{name:'My orders',exact:true})
+  assert.equal(screen.getByRole('button',{name:'My orders',exact:true}).getAttribute('aria-current'),'page')
+  assert.equal(screen.getByRole('button',{name:'Find furniture',exact:true}).getAttribute('aria-current'),null)
+  fireEvent.click(screen.getByRole('button',{name:'Profile',exact:true}))
+  await screen.findByRole('heading',{name:'Profile & settings'})
+  assert.ok(screen.getByLabelText('Current user'))
+  assert.equal(screen.getByRole('button',{name:'Profile',exact:true}).getAttribute('aria-current'),'page')
+  fireEvent.click(screen.getByRole('button',{name:'Find furniture',exact:true}))
+  assert.equal(screen.queryByLabelText('Current user'),null)
+  await act(async()=>navigate('/buyer/orders'))
+  await screen.findByRole('heading',{name:'My orders',exact:true})
+  assert.equal(screen.getByRole('button',{name:'My orders',exact:true}).getAttribute('aria-pressed'),'true')
+})
 function mockSearch(handler: (body: unknown) => Promise<Response>) {
   globalThis.fetch = (async (url, options) => {
     if (String(url).endsWith('/bundles/generate')) return handler(JSON.parse(String(options?.body)))

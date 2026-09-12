@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Check, ImagePlus, MapPin, PackageCheck, Plus, Truck, Upload, X } from 'lucide-react'
+import { ArrowRight, Check, ImagePlus, MapPin, PackageCheck, Truck, Upload, X } from 'lucide-react'
 import { api, post } from './api'
 import { money } from './types'
 import type { AnalysisResult, Category, Listing, Seller, Location } from './types'
@@ -9,10 +9,12 @@ import CategoryPicker from './CategoryPicker'
 import { categoryIcon } from './catalog'
 import { navigate } from './navigation'
 import { OrderHistory } from './Orders'
+import { useSession } from './Auth'
 const today = () => new Date().toISOString().slice(0, 10)
 
 export default function SellerView() {
   const [sellers, setSellers] = useState<Seller[]>([]), [listings, setListings] = useState<Listing[]>([])
+  const session = useSession()
   const route = window.location.pathname.split('/')
   const [sellerId, setSellerId] = useState(route[2] || '')
   const tab = route[3] || 'listings'
@@ -105,7 +107,7 @@ export default function SellerView() {
           setSellerId(''); setLoadError('This seller profile is not owned by your account.'); return
         }
         if (!sellerId && me.sellers.length) {
-          navigate('/seller/' + me.sellers[0].id + '/listings', true); return
+          navigate('/seller/' + (me.sellers.find(s=>s.id===session.userId) || me.sellers[0]).id + '/listings', true); return
         }
         if (!profileInitialized.current) {
           const current = me.sellers.find(p => p.id === sellerId)
@@ -165,9 +167,9 @@ export default function SellerView() {
     } catch (e) { setError((e as Error).message) } finally { endInventoryWrite(writeId); setSaving(false) }
   }
   return <main className="page-shell seller-page">
-    <section className="seller-hero"><div><p className="eyebrow">MAKE ROOM FOR WHAT’S NEXT</p><h1>Good furniture.<br /><em>A new chapter.</em></h1><p className="hero-copy">List your piece. Help someone make a home.</p></div><div className="seller-profile"><label htmlFor="seller-persona">Your seller profile</label><select id="seller-persona" value={sellerId} onChange={e => { clearAnalysis(); navigate(`/seller/${e.target.value}/listings`) }}>{sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><button className="text-button" onClick={() => { profileInitialized.current = true; setEditingProfile(false); setName(''); setPickupLocation(null); setCanDrive(false); setVehicle('truck'); setNewProfile(!newProfile); setError('') }}><Plus size={14} /> Create your own profile</button><p className="field-hint">Only profiles owned by your account appear here.</p></div></section>
+    <section className="seller-hero"><div><p className="eyebrow">MAKE ROOM FOR WHAT’S NEXT</p><h1>Good furniture.<br /><em>A new chapter.</em></h1><p className="hero-copy">List your piece. Help someone make a home.</p></div></section>
     {newProfile && <form className="profile-form" onSubmit={createProfile}><div className="section-heading"><h2>Your pickup & delivery details</h2><button type="button" className="icon-button" aria-label="Close profile form" onClick={() => setNewProfile(false)}><X size={19} /></button></div><div className="profile-fields"><label>Your name<input required value={name} onChange={e => setName(e.target.value)} maxLength={80} /></label><LocationPicker label="Pickup address" value={pickupLocation} onChange={setPickupLocation} /><label className="checkbox-label"><input type="checkbox" checked={canDrive} onChange={e => setCanDrive(e.target.checked)} /> I can drive and offer delivery</label>{canDrive && <label>Your vehicle<select value={vehicle} onChange={e => setVehicle(e.target.value)}><option value="sedan">Sedan · 4 units</option><option value="suv">SUV · 7 units</option><option value="truck">Truck · 12 units</option></select></label>}</div>{editingProfile && seller && <button type="button" className="secondary" disabled={profileSaving} onClick={() => restoreProfile(seller)}>Discard profile changes</button>}<button className="primary" disabled={profileSaving}>{profileSaving ? 'Saving profile…' : 'Save seller profile'} <ArrowRight size={16} /></button></form>}
-    {sellerId && <div className="seller-tabs" role="tablist" aria-label="Seller dashboard">{[['listings','Inventory'],['orders','Orders'],['deliveries','Deliveries'],['profile','Profile']].map(([id,label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => navigate(`/seller/${sellerId}/${id}`)}>{label}</button>)}</div>}
+    {sellerId && <div className="seller-tabs" role="tablist" aria-label="Seller dashboard">{[['listings','Inventory'],['orders','Orders'],['deliveries','Deliveries']].map(([id,label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => { navigate(`/seller/${sellerId}/${id}`) }}>{label}</button>)}</div>}
 
     {loadError && <p className="error-message" role="alert">{loadError} <button className="secondary" onClick={() => setRetry(n => n + 1)}>Retry dashboard</button></p>}
     {error && <p className="error-message" role="alert">{error}</p>}{success && <p className="success-banner" role="status"><Check size={17} /> {success}</p>}

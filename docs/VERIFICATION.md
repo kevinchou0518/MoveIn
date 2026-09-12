@@ -1,5 +1,18 @@
 # Verification
 
+## Original sellers promoted to users — latest
+
+- The seven original sellers are now the seven selectable users. Each owns their original furniture and can buy, sell, and manage orders. Profile directly edits the selected user's settings; the extra selling-profile selector and Sell furniture account/settings panel were removed.
+- Existing local data was backed up before restarting with the repeatable ownership migration. All listing records and order statuses were verified unchanged; the seven seed profiles now have seven distinct owners. Previous three-user demo identities map to Maya/Jordan/Riley for existing purchases and custom records. Atlas remains unchanged.
+- 111 backend tests pass (two optional Atlas tests skipped), 53 frontend tests pass, and the production build passes. Tests cover independent ownership, all seven users buying and creating selling records, migration preservation/idempotency, and absence of the redundant UI.
+
+## Unified accounts and Profile settings — latest
+
+- Profile is the only user-switching surface. Avery, Casey, and Morgan have identical buying/selling capabilities, with existing internal identity IDs preserved. Profile supports pickup/delivery settings, creating selling profiles, and remembering the active owned profile per account. Seller inventory no longer has a profile/user selector.
+- Header navigation now tracks Find furniture, My orders, Sell furniture, and Profile independently. Order history and buyer order details highlight My orders instead of Find furniture.
+- 106 backend tests pass (two opt-in Atlas tests skipped), 53 frontend tests pass, and the production build passes. Added tests verify every persona can buy and create selling profiles, profile save/load recovery and switching, and independent My orders navigation.
+- Live browser checks confirmed switching users in Profile, selecting Riley's selling profile and opening its inventory without a switcher, and navigating to My orders with the correct selected header state. The app still uses the separate local demo database.
+
 ## Review fixes — latest checkpoint
 
 - Pending listing saves disable the complete editor and Cancel editing. Successful saves reset the submitted form; failed saves retain the draft and re-enable editing. Success/failure regression tests verify the controls lock and subsequent drafts remain editable. All 50 frontend tests and the production build pass after this fix; backend code is unchanged.

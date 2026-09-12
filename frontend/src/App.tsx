@@ -11,8 +11,9 @@ import BuyerAssistant from './BuyerAssistant'
 import { usePath, navigate } from './navigation'
 import { useCatalog, categoryIcon } from './catalog'
 import { readPreferences, readSearch, saveSearch } from './searchSession'
-import { AccountPage, LoginRequired, UserSwitcher, useSession } from './Auth'
+import { LoginRequired, useSession } from './Auth'
 import { OrderHistory, OrderPage } from './Orders'
+import AccountPage from './AccountPage'
 const INITIAL_CATEGORIES: Category[] = ['tv', 'tv_stand', 'desk', 'chair']
 
 
@@ -20,7 +21,7 @@ export default function App() {
   const session = useSession()
   const path=usePath()
   const mode=path.startsWith('/seller')?'seller':'buyer'
-  const setMode=(mode:string)=>navigate(mode==='seller'?'/seller':'/buyer')
+  const activeSection = path.startsWith('/account') ? 'profile' : path === '/buyer/orders' || path.startsWith('/orders/') ? 'orders' : mode === 'seller' ? 'seller' : 'buyer'
   const {catalog}=useCatalog()
   const [categoryQuery,setCategoryQuery]=useState('')
   const [moreCategories,setMoreCategories]=useState(false)
@@ -68,7 +69,7 @@ export default function App() {
     await runSearch({categories:selected,budget,buyer_has_car:hasCar,buyer_location:buyerLocation,radius_miles:Number(radius),ranking})
   }
   return <>
-    <header className="site-header"><a className="brand" href="/" aria-label="SnackOverflow home"><span className="brand-symbol"><Sofa size={23} strokeWidth={1.8} /></span>SnackOverflow<span className="brand-dot">.</span></a><nav className="mode-switch" aria-label="Marketplace mode"><button onClick={() => setMode('buyer')} aria-pressed={mode === 'buyer'} className={mode === 'buyer' ? 'active' : ''}>Find furniture</button><button onClick={() => navigate('/buyer/orders')}>My orders</button><button onClick={() => setMode('seller')} aria-pressed={mode === 'seller'} className={mode === 'seller' ? 'active' : ''}>Sell furniture</button><UserSwitcher /></nav></header>
+    <header className="site-header"><a className="brand" href="/" aria-label="SnackOverflow home"><span className="brand-symbol"><Sofa size={23} strokeWidth={1.8} /></span>SnackOverflow<span className="brand-dot">.</span></a><nav className="mode-switch" aria-label="Marketplace navigation">{[{id:'buyer',label:'Find furniture',url:'/buyer'},{id:'orders',label:'My orders',url:'/buyer/orders'},{id:'seller',label:'Sell furniture',url:'/seller'},{id:'profile',label:'Profile',url:'/account'}].map(item=><button key={item.id} onClick={()=>navigate(item.url)} aria-current={activeSection===item.id?'page':undefined} aria-pressed={activeSection===item.id} className={activeSection===item.id?'active':''}>{item.label}</button>)}</nav></header>
     {!session.authenticated && (isResults || path.startsWith('/bundles/') || path.startsWith('/orders/') || mode === 'seller' || path === '/buyer/orders' || path.startsWith('/account') || path.startsWith('/auth/')) ? <LoginRequired><></></LoginRequired> : path.startsWith('/account') ? <AccountPage /> : path.startsWith('/orders/') || /^\/seller\/[^/]+\/orders\/[^/]+/.test(path) ? <OrderPage key={path} path={path} onFindAnother={runSearch} /> : path === '/buyer/orders' ? <main className="page-shell"><OrderHistory /></main> : path.startsWith('/bundles/') ? <BundlePage key={path} path={path} onFindAnother={runSearch} /> : mode === 'seller' ? <Suspense fallback={<main className="page-shell"><p role="status">Loading seller dashboard…</p></main>}><SellerView key={path} /></Suspense> : <main className="page-shell page-transition">
       <section className="hero"><div><p className="eyebrow"><span className="little-star">✳</span> A FRESH START, SECONDHAND.</p><h1 tabIndex={-1}>Your new place.<br /><em>Already coming together.</em></h1><p className="hero-copy">Tell us what you need. We’ll find the furniture,<br className="desktop-br" /> fit your budget, and work out the pickup.</p></div><div className="hero-note"><span className="circular-leaf"><Leaf size={22} /></span><span>Less searching.<br />More settling in.</span><svg width="72" height="51" viewBox="0 0 72 51" aria-hidden="true"><path d="M7 5C55 1 77 33 34 41m0 0 11-12m-11 12 17 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg></div></section>
       <div className="workspace-grid"><aside className="requirements"><form onSubmit={generate}>

@@ -215,20 +215,58 @@ def test_upload_ownership(market):
 
 def test_demo_identity_selection():
     auth = Authenticator()
-    assert auth.authenticate(None)['subject'] == 'demo-buyer'
-    assert auth.authenticate('Bearer demo-seller')['subject'] == 'demo-seller'
+    assert auth.authenticate(None)['subject'] == 'maya'
+    assert auth.authenticate('Bearer demo-seller')['subject'] == 'riley'
     with pytest.raises(HTTPException):
         auth.authenticate('Bearer unknown')
+
+@pytest.mark.parametrize('subject',['maya','jordan','alex','sam','riley','jamie','distant'])
+def test_every_demo_user_can_buy_and_create_selling_profile(tmp_path, subject):
+    store=LocalStore(tmp_path / 'demo.json')
+    with TestClient(create_app(store, MapProvider(), tmp_path / 'uploads')) as client:
+        identity=headers(subject)
+        response=client.post('/sellers',headers=identity,json={'name':'My profile','location':{'lat':40.44,'lng':-79.94,'label':'Oakland'},'can_drive':False})
+        assert response.status_code == 201
+        sid=response.json()['id']
+        assert sid in [s['id'] for s in client.get('/me',headers=identity).json()['sellers']]
+        bundles=client.post('/bundles/generate',json=REQUEST,headers=identity)
+        assert bundles.status_code == 200
+        bid=bundles.json()['bundles'][0]['id']
+        order=client.post(f'/bundles/{bid}/checkout',headers=identity)
+        assert order.status_code == 201
+        assert client.get('/orders',headers=identity).json()['total'] == 1
 
 def test_demo_seed_ownership_is_repeatable(tmp_path):
     store = LocalStore(tmp_path / 'demo.json')
     with TestClient(create_app(store, MapProvider(), tmp_path / 'uploads')) as client:
-        assert len(client.get('/me', headers=headers('demo-seller')).json()['sellers']) == 7
-        assert client.get('/me').json()['sellers'] == []
+        for subject in ['maya','jordan','alex','sam','riley','jamie','distant']:
+            owned = client.get('/me', headers=headers(subject)).json()['sellers']
+            assert [seller['id'] for seller in owned] == [subject]
+        assert client.patch('/sellers/maya', json={'name':'Wrong'}, headers=headers('jordan')).status_code == 403
         before = store.snapshot()
         from app.auth import initialize_demo_accounts
         store.atomic(initialize_demo_accounts)
         assert store.snapshot() == before
+
+def test_existing_demo_records_migrate_to_individual_users_without_inventory_changes(tmp_path):
+    from app.auth import account_id, DEMO_ISSUER, initialize_demo_accounts
+    store=LocalStore(tmp_path / 'demo.json')
+    old_seller=account_id(DEMO_ISSUER,'demo-seller')
+    old_buyer=account_id(DEMO_ISSUER,'demo-buyer')
+    for seller in store.data['sellers'].values(): seller['owner_id']=old_seller
+    store.data['bundles']['saved']={'id':'saved','buyer_id':old_buyer}
+    store.data['orders']['saved']={'id':'saved','buyer_id':old_buyer,'status':'reserved','bundle':{'buyer_id':old_buyer}}
+    store.data['uploads']={'photo':{'id':'photo','owner_id':old_seller}}
+    inventory=deepcopy(store.data['listings'])
+    store.atomic(initialize_demo_accounts)
+    assert store.data['orders']['saved']['buyer_id']==account_id(DEMO_ISSUER,'maya')
+    assert store.data['orders']['saved']['status']=='reserved'
+    assert store.data['uploads']['photo']['owner_id']==account_id(DEMO_ISSUER,'riley')
+    assert store.data['listings']==inventory
+    for sid,seller in store.data['sellers'].items(): assert seller['owner_id']==account_id(DEMO_ISSUER,sid)
+    before=store.snapshot()
+    store.atomic(initialize_demo_accounts)
+    assert store.snapshot()==before
 
 def test_explicit_account_migration_is_idempotent_and_preserves_history(market):
     client, store = market

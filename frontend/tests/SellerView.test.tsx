@@ -166,8 +166,8 @@ test('profile refresh preserves drafts and explicit discard restores current ser
   render(<SellerView />)
   const name = await screen.findByLabelText('Your name') as HTMLInputElement
   fireEvent.change(name,{target:{value:'My unsaved name'}})
-  fireEvent(window,new dom.window.Event('focus'))
-  await screen.findByRole('option',{name:'Jordan updated'})
+  await act(async()=>{fireEvent(window,new dom.window.Event('focus'))})
+  assert.equal(reads,2)
   assert.equal(name.value,'My unsaved name')
   fireEvent.click(screen.getByRole('button',{name:'Discard profile changes'}))
   assert.equal(name.value,'Jordan updated')
@@ -219,6 +219,9 @@ test('seller dashboard requests only owned profiles and provides distinct order 
   globalThis.fetch = async url => { urls.push(String(url)); if(String(url).endsWith('/me'))return Response.json({id:'owner',sellers:[sellers[0]]}); if(String(url).includes('/orders?'))return Response.json({items:[],total:0,offset:0,limit:20}); return Response.json([]) }
   render(<SellerView />)
   await screen.findByRole('heading',{name:'Orders with your furniture'})
+  assert.equal(screen.queryByText('Inventory and deliveries for your account.'),null)
+  assert.equal(screen.queryByRole('button',{name:'Profile settings'}),null)
+  assert.equal(screen.queryByLabelText('Your seller profile'),null)
   await waitFor(()=>assert.ok(urls.some(u=>u.includes('/sellers/jordan/orders?'))))
   assert.equal(screen.queryByRole('option',{name:'maya'}),null)
   assert.ok(screen.getByRole('tab',{name:'Deliveries'}))
@@ -237,7 +240,7 @@ function setup() {
   render(<SellerView />)
 }
 async function upload() {
-  await screen.findByRole('option',{name:'jordan'})
+  await screen.findByRole('heading',{name:'jordan’s furniture'})
   fireEvent.change(screen.getByLabelText('Furniture photo'),{target:{files:[new File(['image'],'chair.jpg',{type:'image/jpeg'})]}})
   await screen.findByRole('button',{name:'Analyze photo'})
 }
@@ -261,9 +264,11 @@ test('review preserves edits, applies selected suggestions, then publishes edite
 test('profile changes discard an in-flight result',async () => {
   setup(); await upload()
   fireEvent.click(screen.getByRole('button',{name:'Analyze photo'}))
-  fireEvent.change(screen.getByLabelText('Your seller profile'),{target:{value:'maya'}})
+  cleanup()
+  window.history.replaceState(null,'','/seller/maya/listings')
+  render(<SellerView />)
   resolveAnalysis(Response.json(result))
-  await waitFor(()=>assert.ok(screen.getByRole('button',{name:'Analyze photo'})))
+  await screen.findByRole('heading',{name:'maya’s furniture'})
   assert.equal(screen.queryByRole('heading',{name:'Review suggestions'}),null)
 })
 test('photo replacement discards an in-flight result',async () => {

@@ -1,12 +1,14 @@
 # Demo users and orders
 
-Use **Demo user** in the header to choose **Demo buyer**, **Second buyer**, or **Demo seller**. No login, API key, or Auth0 setup is needed. Selection persists per browser tab. Switching clears searches and remounts account pages so previous-user data and pending responses cannot leak into the new view.
+Open **Profile → Current user** to select Maya Chen, Jordan Brooks, Alex Rivera, Sam Patel, Riley Morgan, Jamie Park, or Taylor Reed. Each original seller is now a complete user who can buy, sell, and manage orders. Each user owns their corresponding original furniture; there is no separate seller-profile switcher.
 
-The seller persona owns all seven unowned seed profiles. Both buyer personas can reserve furniture independently. Each persona can also create its own seller profiles. Existing custom ownership is preserved.
+Profile edits the current user's pickup and delivery settings. Sell furniture opens that user's inventory without the redundant name/account/settings panel. User selection persists per tab and switching clears stale searches.
 
-This is an open demo, not secure authentication: anyone can select any persona. API requests use `Authorization: Bearer demo-buyer`, `demo-buyer-2`, or `demo-seller`; absent selection defaults to the first buyer. Unknown identities are rejected. Account ownership and order lifecycle checks still operate between personas.
+Startup migration maps the former Avery/Casey/Morgan demo identities to Maya/Jordan/Riley for existing purchases, uploads, and custom records, and distributes the seven original selling profiles to their matching users. It preserves inventory and order statuses and is repeatable. Legacy identity headers remain aliases for compatibility.
 
-For historical data, `scripts/demo_data.py --account-map backend/data/account-map.json` previews an explicit mapping; add `--apply` to back up and apply it. Use issuer `https://demo.snackoverflow.local/`, buyer_sub `demo-buyer`, and map each seed seller ID to `demo-seller`. The migration cancels only the four previously identified legacy orders, preserves snapshots, releases their inventory safely, and rejects conflicts. Full resets remain separate and remove custom catalog data and orders.
+This is an open demo, not secure authentication: anyone can select any persona. API requests use `Authorization: Bearer maya`, `demo-buyer-2`, or `demo-seller`; absent selection defaults to the first buyer. Unknown identities are rejected. Account ownership and order lifecycle checks still operate between personas.
+
+For historical data, `scripts/demo_data.py --account-map backend/data/account-map.json` previews an explicit mapping; add `--apply` to back up and apply it. Use issuer `https://demo.snackoverflow.local/`, buyer_sub `maya`, and map each seed seller ID to the same user ID. The migration cancels only the four previously identified legacy orders, preserves snapshots, releases their inventory safely, and rejects conflicts. Full resets remain separate and remove custom catalog data and orders.
 
 ## Flows and status rules
 

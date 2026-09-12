@@ -4,16 +4,21 @@ import { navigate } from './navigation'
 import { clearSearches } from './searchSession'
 
 export const demoUsers = [
-  {id:'demo-buyer', name:'Demo buyer'},
-  {id:'demo-buyer-2', name:'Second buyer'},
-  {id:'demo-seller', name:'Demo seller'},
+  {id:'maya', name:'Maya Chen'},
+  {id:'jordan', name:'Jordan Brooks'},
+  {id:'alex', name:'Alex Rivera'},
+  {id:'sam', name:'Sam Patel'},
+  {id:'riley', name:'Riley Morgan'},
+  {id:'jamie', name:'Jamie Park'},
+  {id:'distant', name:'Taylor Reed'},
 ]
+const legacyUsers: Record<string,string> = {'demo-buyer':'maya','demo-buyer-2':'jordan','demo-seller':'riley'}
 type Session = { configured:boolean; authenticated:boolean; loading:boolean; name?:string; userId?:string; selectUser?:(id:string)=>void; login:()=>void; logout:()=>void }
 export const AuthContext = createContext<Session>({configured:true,authenticated:true,loading:false,login:()=>{},logout:()=>{}})
 export const useSession = () => useContext(AuthContext)
 function initialUser() {
-  try { const id=window.sessionStorage.getItem('demo-user'); if(demoUsers.some(u=>u.id===id))return id! } catch {}
-  return 'demo-buyer'
+  try { const stored=window.sessionStorage.getItem('demo-user') || ''; const id=legacyUsers[stored] || stored; if(demoUsers.some(u=>u.id===id))return id! } catch {}
+  return 'maya'
 }
 export function LoginProvider({children}:{children:ReactNode}) {
   const [userId,setUserId]=useState(initialUser)
@@ -23,16 +28,13 @@ export function LoginProvider({children}:{children:ReactNode}) {
     configureApiAuth(async()=>id,id)
     clearSearches()
     try {window.sessionStorage.removeItem('buyer-preferences');window.sessionStorage.setItem('demo-user',id)} catch {}
-    navigate(id==='demo-seller'?'/seller':'/buyer',true)
+    navigate('/account',true)
     setUserId(id)
   }
-  return <AuthContext.Provider value={{configured:true,authenticated:true,loading:false,userId,name:demoUsers.find(u=>u.id===userId)?.name,selectUser,login:()=>{},logout:()=>selectUser('demo-buyer')}}><div key={userId}>{children}</div></AuthContext.Provider>
+  return <AuthContext.Provider value={{configured:true,authenticated:true,loading:false,userId,name:demoUsers.find(u=>u.id===userId)?.name,selectUser,login:()=>{},logout:()=>selectUser('maya')}}><div key={userId}>{children}</div></AuthContext.Provider>
 }
 export function UserSwitcher() {
   const session=useSession()
-  return <label className="demo-user-switch">Demo user<select aria-label="Demo user" value={session.userId || 'demo-buyer'} onChange={e=>session.selectUser?.(e.target.value)}>{demoUsers.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
+  return <label className="demo-user-switch">Current user<select aria-label="Current user" value={session.userId || 'maya'} onChange={e=>session.selectUser?.(e.target.value)}>{demoUsers.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></label>
 }
 export function LoginRequired({children}:{children:ReactNode}) {return <>{children}</>}
-export function AccountPage() {
-  return <main className="page-shell"><h1>Your demo account</h1><UserSwitcher /><p>Switch between buyers and the seller to try orders, inventory, and delivery. No sign-in is needed.</p></main>
-}

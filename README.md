@@ -13,7 +13,7 @@ Requires Python **3.12–3.14**, Node **22.12+**, and npm. Verified here on Pyth
 
 Open [the app](http://localhost:5173) and [the API docs](http://localhost:8000/docs).
 
-The app can start without provider keys and display the public buyer form. Choose a persona using **Demo user** in the header; no login is required. See [demo accounts](docs/ACCOUNTS.md). The first startup seeds 7 fictional sellers and 27 listings. Without MongoDB, changes persist in `backend/data/demo.json`; photos persist in `backend/uploads/`. Use **one backend process** in local mode.
+The app can start without provider keys and display the public buyer form. Choose a user in **Profile → Current user**; no login is required. See [demo accounts](docs/ACCOUNTS.md). The first startup seeds 7 fictional sellers and 27 listings. Without MongoDB, changes persist in `backend/data/demo.json`; photos persist in `backend/uploads/`. Use **one backend process** in local mode.
 
 To start services separately:
 
@@ -28,7 +28,7 @@ npm run dev
 
 ## Demo walkthrough
 
-1. Select **Demo buyer** in the header. In **Find furniture**, keep TV, TV stand, desk, chair, $300, Oakland, and **Bring it to me**.
+1. Select **Maya Chen** in **Profile → Current user**. In **Find furniture**, keep TV, TV stand, desk, chair, $300, Oakland, and **Bring it to me**.
 2. Click **Build my bundle**. Compare the three complete options. Furniture subtotal fits $300; delivery is extra and included in the displayed total.
 3. Open **How these bundles were chosen** to see filtered listings, combination count, and enforced constraints.
 4. **View bundle** opens a separate review page with the selected driver, capacity, all items, route order, distance, time, and fee. Use **Swap item** to replace one piece while keeping the others fixed.
@@ -36,7 +36,7 @@ npm run dev
 6. **My orders** keeps your reservations and history. **View delivery plan** opens your buyer plan without entering seller mode. Cancel before fulfillment starts to release inventory, or confirm receipt after the driver starts delivery. **Find another bundle** searches current inventory with the same preferences.
 7. Try **I’ll pick it up** for a buyer → sellers → buyer route. Buyer vehicle size is assumed sufficient for this MVP.
 8. Try a $1 budget to demonstrate an explanatory no-results state.
-9. Select **Demo seller** in the header. Manage owned profiles, upload and publish furniture, edit or withdraw available listings, review orders containing your items, and start assigned deliveries. Buyers start and complete their own self-pickup orders.
+9. Select **Riley Morgan** in **Profile → Current user**. Manage owned profiles, upload and publish furniture, edit or withdraw available listings, review orders containing your items, and start assigned deliveries. Buyers start and complete their own self-pickup orders.
 
 Reservations make listings unavailable. Manage demo records with the script below. It uses the configured MongoDB database, or local JSON when MongoDB is unset. Stop the app before applying changes.
 

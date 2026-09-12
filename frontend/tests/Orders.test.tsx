@@ -109,16 +109,16 @@ test('demo users switch without login and reset private routes', async () => {
   const {LoginProvider,UserSwitcher}=await import('../src/Auth')
   render(<LoginProvider><UserSwitcher /><LoginRequired><p>Demo content</p></LoginRequired></LoginProvider>)
   assert.ok(screen.getByText('Demo content'))
-  fireEvent.change(screen.getByLabelText('Demo user'),{target:{value:'demo-seller'}})
-  assert.equal(window.location.pathname,'/seller')
-  assert.equal(window.sessionStorage.getItem('demo-user'),'demo-seller')
+  fireEvent.change(screen.getByLabelText('Current user'),{target:{value:'riley'}})
+  assert.equal(window.location.pathname,'/account')
+  assert.equal(window.sessionStorage.getItem('demo-user'),'riley')
   globalThis.fetch=async (_url,options)=>{
-    assert.equal(new Headers(options?.headers).get('Authorization'),'Bearer demo-seller')
+    assert.equal(new Headers(options?.headers).get('Authorization'),'Bearer riley')
     return Response.json({})
   }
   await api('/me')
-  fireEvent.change(screen.getByLabelText('Demo user'),{target:{value:'demo-buyer'}})
-  assert.equal(window.location.pathname,'/buyer')
+  fireEvent.change(screen.getByLabelText('Current user'),{target:{value:'maya'}})
+  assert.equal(window.location.pathname,'/account')
 })
 
 test('API sends access token and rejects responses after account changes', async () => {
