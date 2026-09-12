@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from app.services.ai_service import AnalysisRequest, GrokService
 from app.services.bundle_service import delivery_fee
-from app.main import create_app
+from support import create_app
 from app.db.store import LocalStore
 from app.services.route_optimizer import MapProvider
 from PIL import Image

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { ArrowRight, Armchair, CarFront, Check, ChevronDown, Leaf, MapPin, Plus, Route as RouteIcon, SlidersHorizontal, Sofa, Truck, Tv } from 'lucide-react'
+import { ArrowRight, Armchair, CarFront, Check, ChevronDown, Leaf, Plus, Route as RouteIcon, SlidersHorizontal, Sofa, Truck, Tv } from 'lucide-react'
 import { api, post } from './api'
 import { rankingNames } from './types'
 import type { BundleResponse, Category, Location, BuyerRequest, Ranking } from './types'
@@ -11,10 +11,13 @@ import BuyerAssistant from './BuyerAssistant'
 import { usePath, navigate } from './navigation'
 import { useCatalog, categoryIcon } from './catalog'
 import { readPreferences, readSearch, saveSearch } from './searchSession'
+import { AccountPage, LoginRequired, UserSwitcher, useSession } from './Auth'
+import { OrderHistory, OrderPage } from './Orders'
 const INITIAL_CATEGORIES: Category[] = ['tv', 'tv_stand', 'desk', 'chair']
 
 
 export default function App() {
+  const session = useSession()
   const path=usePath()
   const mode=path.startsWith('/seller')?'seller':'buyer'
   const setMode=(mode:string)=>navigate(mode==='seller'?'/seller':'/buyer')
@@ -43,7 +46,7 @@ export default function App() {
   useEffect(()=>{
     const version=++requestVersion.current
     setResult(null)
-    if(!isResults){setLoading(false);return}
+    if(!isResults || !session.authenticated){setLoading(false);return}
     const request=readSearch(path)
     if(!request){setError('This search could not be restored. Review your preferences and build a new bundle.');navigate('/buyer',true);return}
     setSelected(request.categories); setBudget(String(request.budget)); setHasCar(request.buyer_has_car); setBuyerLocation(request.buyer_location); setRadius(String(request.radius_miles)); setRanking(request.ranking || 'balanced')
@@ -56,7 +59,7 @@ export default function App() {
       .catch(e=>{if(version===requestVersion.current)setError(e.message)})
       .finally(()=>{if(version===requestVersion.current)setLoading(false)})
     return()=>{requestVersion.current++;window.cancelAnimationFrame(frame)}
-  },[path,isResults,retry])
+  },[path,isResults,retry,session.authenticated])
   function runSearch(request:BuyerRequest) { navigate(saveSearch(request)) }
   async function generate(e:React.FormEvent) {
     e.preventDefault()
@@ -65,8 +68,8 @@ export default function App() {
     await runSearch({categories:selected,budget,buyer_has_car:hasCar,buyer_location:buyerLocation,radius_miles:Number(radius),ranking})
   }
   return <>
-    <header className="site-header"><a className="brand" href="/" aria-label="SnackOverflow home"><span className="brand-symbol"><Sofa size={23} strokeWidth={1.8} /></span>SnackOverflow<span className="brand-dot">.</span></a><nav className="mode-switch" aria-label="Marketplace mode"><button onClick={() => setMode('buyer')} aria-pressed={mode === 'buyer'} className={mode === 'buyer' ? 'active' : ''}>Find furniture</button><button onClick={() => setMode('seller')} aria-pressed={mode === 'seller'} className={mode === 'seller' ? 'active' : ''}>Sell furniture</button></nav><span className="header-location"><MapPin size={15} /> Pittsburgh, PA <span className="demo-tag">DEMO</span></span></header>
-    {path.startsWith('/bundles/') || path.startsWith('/orders/') ? <BundlePage key={path} path={path} onFindAnother={runSearch} /> : mode === 'seller' ? <Suspense fallback={<main className="page-shell"><p role="status">Loading seller dashboard…</p></main>}><SellerView key={path} /></Suspense> : <main className="page-shell page-transition">
+    <header className="site-header"><a className="brand" href="/" aria-label="SnackOverflow home"><span className="brand-symbol"><Sofa size={23} strokeWidth={1.8} /></span>SnackOverflow<span className="brand-dot">.</span></a><nav className="mode-switch" aria-label="Marketplace mode"><button onClick={() => setMode('buyer')} aria-pressed={mode === 'buyer'} className={mode === 'buyer' ? 'active' : ''}>Find furniture</button><button onClick={() => navigate('/buyer/orders')}>My orders</button><button onClick={() => setMode('seller')} aria-pressed={mode === 'seller'} className={mode === 'seller' ? 'active' : ''}>Sell furniture</button><UserSwitcher /></nav></header>
+    {!session.authenticated && (isResults || path.startsWith('/bundles/') || path.startsWith('/orders/') || mode === 'seller' || path === '/buyer/orders' || path.startsWith('/account') || path.startsWith('/auth/')) ? <LoginRequired><></></LoginRequired> : path.startsWith('/account') ? <AccountPage /> : path.startsWith('/orders/') || /^\/seller\/[^/]+\/orders\/[^/]+/.test(path) ? <OrderPage key={path} path={path} onFindAnother={runSearch} /> : path === '/buyer/orders' ? <main className="page-shell"><OrderHistory /></main> : path.startsWith('/bundles/') ? <BundlePage key={path} path={path} onFindAnother={runSearch} /> : mode === 'seller' ? <Suspense fallback={<main className="page-shell"><p role="status">Loading seller dashboard…</p></main>}><SellerView key={path} /></Suspense> : <main className="page-shell page-transition">
       <section className="hero"><div><p className="eyebrow"><span className="little-star">✳</span> A FRESH START, SECONDHAND.</p><h1 tabIndex={-1}>Your new place.<br /><em>Already coming together.</em></h1><p className="hero-copy">Tell us what you need. We’ll find the furniture,<br className="desktop-br" /> fit your budget, and work out the pickup.</p></div><div className="hero-note"><span className="circular-leaf"><Leaf size={22} /></span><span>Less searching.<br />More settling in.</span><svg width="72" height="51" viewBox="0 0 72 51" aria-hidden="true"><path d="M7 5C55 1 77 33 34 41m0 0 11-12m-11 12 17 4" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg></div></section>
       <div className="workspace-grid"><aside className="requirements"><form onSubmit={generate}>
         <div className="form-heading"><h2>Make yourself at home.</h2><SlidersHorizontal size={19} /></div><p className="muted">A few details. A whole room sorted.</p>

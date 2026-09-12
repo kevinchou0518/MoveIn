@@ -1,4 +1,10 @@
+> Current demo: Auth0 has been removed. Use the header persona selector for two buyers and one seller. Ownership and order lifecycle rules remain; no login configuration is needed. See [ACCOUNTS.md](ACCOUNTS.md). Earlier authentication notes below are historical.
+
 # Implementation plan and contracts
+
+## Account and order workflow extension
+
+The approved account/order extension supersedes earlier statements below about deferred authentication, persona switching, and reservation-only status. Auth0 ownership, buyer order/plan pages, seller inventory maintenance, cancellation, and fulfillment are implemented. See [ACCOUNTS.md](ACCOUNTS.md) for setup, migration, API contracts, state transitions, and repository limits. Previous P0/P1/P2 sections record their original delivery checkpoints.
 
 `SPEC.md` is the authoritative product specification. Initial inspection: the workspace is empty, with no application, dependencies, or Git repository.
 

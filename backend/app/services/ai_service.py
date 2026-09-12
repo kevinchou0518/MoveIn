@@ -53,10 +53,12 @@ class GrokService:
         if not self.key:
             raise HTTPException(503, 'AI analysis is not configured. You can publish manually.')
         name = payload.image_url.removeprefix('/uploads/')
-        if not payload.image_url.startswith('/uploads/') or '/' in name or '\\' in name or not name.endswith('.jpg'):
+        from app.demo_photos import PHOTO_LISTINGS
+        demo = name in {f'demo/{lid}.jpg' for lid in PHOTO_LISTINGS}
+        if not payload.image_url.startswith('/uploads/') or ('/' in name and not demo) or '\\' in name or not name.endswith('.jpg'):
             raise HTTPException(422, 'Choose a photo uploaded through this app.')
         path = (uploads / name).resolve()
-        if path.parent != uploads.resolve() or not path.is_file():
+        if path.parent != (uploads / 'demo' if demo else uploads).resolve() or not path.is_file():
             raise HTTPException(404, 'Uploaded photo not found. Upload it again.')
         encoded = base64.b64encode(path.read_bytes()).decode('ascii')
         body = {

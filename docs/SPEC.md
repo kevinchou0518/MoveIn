@@ -1,3 +1,5 @@
+> Current demo: Auth0 has been removed. Use the header persona selector for two buyers and one seller. Ownership and order lifecycle rules remain; no login configuration is needed. See [ACCOUNTS.md](ACCOUNTS.md). Earlier authentication notes below are historical.
+
 You are the primary engineering agent for our hackathon project.
 
 Your goal is to help us build a working end-to-end demo, not a production-complete marketplace.
@@ -763,3 +765,6 @@ Top 3 results
 Do not implement P1 or P2 until the P0 end-to-end path works.
 
 When making ambiguous implementation decisions, choose the option that maximizes the probability of delivering a stable hackathon demo.
+# Approved account/order extension — September 12, 2026
+
+The user subsequently authorized Auth0 login and account ownership, buyer order history and buyer-only delivery-plan navigation, seller inventory editing/withdrawal, and order cancellation/fulfillment. The lifecycle is reserved → in_progress → completed, or reserved → cancelled. Buyers or involved sellers may cancel before fulfillment starts; the driver starts delivery and the buyer confirms receipt. Buyers start/complete self-pickup. Explicitly mapped demo test accounts own seed sellers, and the four historical reservations migrate to the test buyer as cancelled without consuming available inventory. This extension supersedes conflicting authentication/persona/reservation-only limits in the original brief below. Detailed contracts and setup: [ACCOUNTS.md](ACCOUNTS.md).

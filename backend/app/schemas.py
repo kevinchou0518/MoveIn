@@ -43,13 +43,15 @@ class SellerCreate(Model):
 
 class Seller(SellerCreate):
     id: str
+    owner_id: str | None = None
+    revision: int = 0
 
     @property
     def vehicle_capacity(self) -> int:
         return VEHICLE_CAPACITIES.get(self.vehicle_type, 0)
 
     def public(self) -> dict:
-        return {**self.model_dump(mode='json'), 'vehicle_capacity': self.vehicle_capacity}
+        return {**self.model_dump(mode='json', exclude={'owner_id'}), 'vehicle_capacity': self.vehicle_capacity}
 
 
 class ListingCreate(Model):
@@ -81,13 +83,17 @@ class Listing(ListingCreate):
     id: str
     location: Location
     available: bool = True
+    status: Literal['available', 'reserved', 'sold', 'withdrawn'] | None = None
+    reserved_order_id: str | None = None
+    revision: int = 0
 
     @property
     def price_cents(self) -> int:
         return int(self.price * 100)
 
     def public(self) -> dict:
-        return {**self.model_dump(mode='json'), 'price': float(self.price)}
+        return {**self.model_dump(mode='json', exclude={'reserved_order_id'}),
+                'status': self.status or ('available' if self.available else 'sold'), 'price': float(self.price)}
 
 
 class BundleRequest(Model):

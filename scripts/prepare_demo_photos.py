@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT / 'backend'))
 from app.demo_photos import PHOTO_LISTINGS
 
 def main():
-    destination = ROOT / 'frontend/public/images/demo'
+    destination = ROOT / 'backend/fixtures/photos'
     destination.mkdir(parents=True, exist_ok=True)
     for listing_id, (filename, *_) in PHOTO_LISTINGS.items():
         with Image.open(ROOT / 'furniture-photos' / filename) as source:

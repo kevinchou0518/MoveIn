@@ -1,20 +1,43 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, ImagePlus, MapPin, PackageCheck, Plus, Truck, Upload, X } from 'lucide-react'
 import { api, post } from './api'
 import { money } from './types'
-import type { AnalysisResult, Category, Listing, Order, Seller, Location } from './types'
+import type { AnalysisResult, Category, Listing, Seller, Location } from './types'
 import LocationPicker from './LocationPicker'
 import PriceResearch from './PriceResearch'
 import CategoryPicker from './CategoryPicker'
 import { categoryIcon } from './catalog'
-const RouteMap = lazy(() => import('./RouteMap'))
+import { navigate } from './navigation'
+import { OrderHistory } from './Orders'
 const today = () => new Date().toISOString().slice(0, 10)
 
 export default function SellerView() {
   const [sellers, setSellers] = useState<Seller[]>([]), [listings, setListings] = useState<Listing[]>([])
-  const [sellerId, setSellerId] = useState(new URLSearchParams(window.location.search).get('driver') || 'jordan'), [tab, setTab] = useState<'listings' | 'deliveries'>(new URLSearchParams(window.location.search).get('tab') === 'deliveries' ? 'deliveries' : 'listings')
-  const [deliveries, setDeliveries] = useState<Order[]>([]), [loading, setLoading] = useState(true)
-  const [deliveryLoading, setDeliveryLoading] = useState(false)
+  const route = window.location.pathname.split('/')
+  const [sellerId, setSellerId] = useState(route[2] || '')
+  const tab = route[3] || 'listings'
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [retry, setRetry] = useState(0)
+  const profileInitialized = useRef(false)
+  const dashboardLoaded = useRef(false)
+  const inventoryVersion = useRef(0), inventoryWrites = useRef(0)
+  const pendingListingIds = useRef(new Set<string>())
+  const [pendingListings, setPendingListings] = useState<Set<string>>(new Set())
+  function beginInventoryWrite(id: string) {
+    if (pendingListingIds.current.has(id)) return false
+    pendingListingIds.current.add(id)
+    setPendingListings(new Set(pendingListingIds.current))
+    inventoryVersion.current++; inventoryWrites.current++
+    return true
+  }
+  function endInventoryWrite(id: string) {
+    pendingListingIds.current.delete(id)
+    setPendingListings(new Set(pendingListingIds.current))
+    inventoryVersion.current++; inventoryWrites.current--
+  }
+  const [loadError, setLoadError] = useState('')
   const [error, setError] = useState(''), [success, setSuccess] = useState(''), [saving, setSaving] = useState(false)
   const [newProfile, setNewProfile] = useState(false), [profileSaving, setProfileSaving] = useState(false)
   const [name, setName] = useState('')
@@ -63,25 +86,59 @@ export default function SellerView() {
     setSelected([]); setSuccess('Selected suggestions applied. Review and edit your listing before publishing.')
   }
   const seller = sellers.find(s => s.id === sellerId)
+  function restoreProfile(current: Seller) {
+    setName(current.name); setPickupLocation(current.location); setCanDrive(current.can_drive)
+    setVehicle(current.vehicle_type || 'truck'); setEditingProfile(true); setNewProfile(true)
+  }
   useEffect(() => {
     let alive = true
-    Promise.all([api<Seller[]>('/sellers'), api<Listing[]>('/listings')]).then(([s, l]) => { if (alive) { setSellers(s); setListings(l); if (!s.some(person => person.id === sellerId)) setSellerId(s[0]?.id || '') } }).catch(e => { if (alive) setError(e.message) }).finally(() => { if (alive) setLoading(false) })
+    const version = inventoryVersion.current
+    const startedDuringWrite = inventoryWrites.current > 0
+    setLoading(!dashboardLoaded.current); setLoadError('')
+    Promise.all([api<{sellers: Seller[]}>('/me'), api<Listing[]>('/listings')])
+      .then(([me, inventory]) => {
+        if (!alive) return
+        dashboardLoaded.current = true
+        setSellers(me.sellers)
+        if (!startedDuringWrite && inventoryWrites.current === 0 && version === inventoryVersion.current) setListings(inventory)
+        if (sellerId && !me.sellers.some(person => person.id === sellerId)) {
+          setSellerId(''); setLoadError('This seller profile is not owned by your account.'); return
+        }
+        if (!sellerId && me.sellers.length) {
+          navigate('/seller/' + me.sellers[0].id + '/listings', true); return
+        }
+        if (!profileInitialized.current) {
+          const current = me.sellers.find(p => p.id === sellerId)
+          if (tab === 'profile' && current) restoreProfile(current)
+          if (!me.sellers.length) setNewProfile(true)
+          profileInitialized.current = true
+        }
+      })
+      .catch(e => { if (alive) setLoadError(e.message) })
+      .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [])
-  useEffect(() => {
-    if (tab !== 'deliveries') return
-    let alive = true
-    setDeliveryLoading(true); setDeliveries([]); setError('')
-    api<Order[]>(`/deliveries/${sellerId}`).then(d => { if (alive) setDeliveries(d) }).catch(e => { if (alive) setError(e.message) }).finally(() => { if (alive) setDeliveryLoading(false) })
-    return () => { alive = false }
-  }, [sellerId, tab])
+  }, [retry])
+
+  useEffect(() => { const refresh = () => setRetry(n => n + 1); window.addEventListener('focus', refresh); return () => window.removeEventListener('focus', refresh) }, [])
+  function edit(item: Listing) {
+    if (pendingListingIds.current.has(item.id) || saving) return
+    clearAnalysis(); setEditing(item.id); setTitle(item.title); setCategory(item.category); setDescription(item.description); setPrice(String(item.price)); setCondition(item.condition); setScore(String(item.condition_score)); setSize(String(item.item_size)); setImageUrl(item.image_url); setDate(item.available_date); setError(''); setSuccess('')
+    document.getElementById('listing-editor')?.scrollIntoView({behavior: 'smooth'})
+  }
+  async function inventoryAction(id: string, action: string) {
+    if (!beginInventoryWrite(id)) return
+    setError('')
+    try { const updated = await post<Listing>(`/listings/${id}/${action}`); setListings(items => items.map(i => i.id === id ? updated : i)) }
+    catch (e) { setError((e as Error).message) }
+    finally { endInventoryWrite(id) }
+  }
   async function createProfile(e: React.FormEvent) {
     e.preventDefault(); setError('')
     if (!pickupLocation) { setError('Search and select a pickup address, or choose a demo neighborhood.'); return }
     setProfileSaving(true)
     try {
-      const result = await post<Seller>('/sellers', { name, location: pickupLocation, can_drive: canDrive, vehicle_type: canDrive ? vehicle : null })
-      clearAnalysis(); setSellers(s => [...s, result]); setSellerId(result.id); setNewProfile(false); setSuccess('Your seller profile is ready. Add your first piece below.')
+      const result = await api<Seller>(editingProfile ? `/sellers/${sellerId}` : '/sellers', {method: editingProfile ? 'PATCH' : 'POST', body: JSON.stringify({ name, location: pickupLocation, can_drive: canDrive, vehicle_type: canDrive ? vehicle : null })})
+      clearAnalysis(); navigate(`/seller/${result.id}/listings`)
     } catch (e) { setError((e as Error).message) } finally { setProfileSaving(false) }
   }
   async function upload(file?: File) {
@@ -95,19 +152,26 @@ export default function SellerView() {
   async function publish(e: React.FormEvent) {
     e.preventDefault(); setError(''); setSuccess('')
     if (!imageUrl) { setError('Add a photo of your furniture before publishing.'); return }
+    const writeId = editing || 'new-listing'
+    if (!beginInventoryWrite(writeId)) return
     clearAnalysis(); setSaving(true)
     try {
-      const listing = await post<Listing>('/listings', { seller_id: sellerId, title, category, description, price, condition, condition_score: Number(score), item_size: Number(size), image_url: imageUrl, available_date: date })
-      setListings(items => [listing, ...items]); setSuccess(`“${listing.title}” is published${date > today() ? ` and will be available on ${date}` : ' and ready to be included in buyer bundles'}.`)
+      const listing = await api<Listing>(editing ? `/listings/${editing}` : '/listings', {method: editing ? 'PATCH' : 'POST', body: JSON.stringify({ ...(!editing ? {seller_id: sellerId} : {}), title, category, description, price, condition, condition_score: Number(score), item_size: Number(size), image_url: imageUrl, available_date: date })})
+      setListings(items => [listing, ...items.filter(i => i.id !== listing.id)]); setEditing(null)
+      setSuccess(listing.status === 'withdrawn'
+        ? `Changes to “${listing.title}” were saved. This listing is still withdrawn. Republish it to make it available to buyers.`
+        : `“${listing.title}” is published${date > today() ? ` and will be available on ${date}` : ' and ready to be included in buyer bundles'}.`)
       setTitle(''); setDescription(''); setPrice(''); setImageUrl('')
-    } catch (e) { setError((e as Error).message) } finally { setSaving(false) }
+    } catch (e) { setError((e as Error).message) } finally { endInventoryWrite(writeId); setSaving(false) }
   }
   return <main className="page-shell seller-page">
-    <section className="seller-hero"><div><p className="eyebrow">MAKE ROOM FOR WHAT’S NEXT</p><h1>Good furniture.<br /><em>A new chapter.</em></h1><p className="hero-copy">List your piece. Help someone make a home.</p></div><div className="seller-profile"><label htmlFor="seller-persona">Demo seller profile</label><select id="seller-persona" value={sellerId} onChange={e => { clearAnalysis(); setSellerId(e.target.value); setSuccess('') }}>{sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><button className="text-button" onClick={() => { setNewProfile(!newProfile); setError('') }}><Plus size={14} /> Create your own profile</button><p className="field-hint">Switch profiles to explore this demo. No sign-in required.</p></div></section>
-    {newProfile && <form className="profile-form" onSubmit={createProfile}><div className="section-heading"><h2>Your pickup & delivery details</h2><button type="button" className="icon-button" aria-label="Close profile form" onClick={() => setNewProfile(false)}><X size={19} /></button></div><div className="profile-fields"><label>Your name<input required value={name} onChange={e => setName(e.target.value)} maxLength={80} /></label><LocationPicker label="Pickup address" value={pickupLocation} onChange={setPickupLocation} /><label className="checkbox-label"><input type="checkbox" checked={canDrive} onChange={e => setCanDrive(e.target.checked)} /> I can drive and offer delivery</label>{canDrive && <label>Your vehicle<select value={vehicle} onChange={e => setVehicle(e.target.value)}><option value="sedan">Sedan · 4 units</option><option value="suv">SUV · 7 units</option><option value="truck">Truck · 12 units</option></select></label>}</div><button className="primary" disabled={profileSaving}>{profileSaving ? 'Saving profile…' : 'Save seller profile'} <ArrowRight size={16} /></button></form>}
-    <div className="seller-tabs" role="tablist" aria-label="Seller dashboard"><button role="tab" aria-selected={tab === 'listings'} className={tab === 'listings' ? 'active' : ''} onClick={() => setTab('listings')}>Your listings</button><button role="tab" aria-selected={tab === 'deliveries'} className={tab === 'deliveries' ? 'active' : ''} onClick={() => setTab('deliveries')}>Delivery plans <Truck size={15} /></button></div>
+    <section className="seller-hero"><div><p className="eyebrow">MAKE ROOM FOR WHAT’S NEXT</p><h1>Good furniture.<br /><em>A new chapter.</em></h1><p className="hero-copy">List your piece. Help someone make a home.</p></div><div className="seller-profile"><label htmlFor="seller-persona">Your seller profile</label><select id="seller-persona" value={sellerId} onChange={e => { clearAnalysis(); navigate(`/seller/${e.target.value}/listings`) }}>{sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><button className="text-button" onClick={() => { profileInitialized.current = true; setEditingProfile(false); setName(''); setPickupLocation(null); setCanDrive(false); setVehicle('truck'); setNewProfile(!newProfile); setError('') }}><Plus size={14} /> Create your own profile</button><p className="field-hint">Only profiles owned by your account appear here.</p></div></section>
+    {newProfile && <form className="profile-form" onSubmit={createProfile}><div className="section-heading"><h2>Your pickup & delivery details</h2><button type="button" className="icon-button" aria-label="Close profile form" onClick={() => setNewProfile(false)}><X size={19} /></button></div><div className="profile-fields"><label>Your name<input required value={name} onChange={e => setName(e.target.value)} maxLength={80} /></label><LocationPicker label="Pickup address" value={pickupLocation} onChange={setPickupLocation} /><label className="checkbox-label"><input type="checkbox" checked={canDrive} onChange={e => setCanDrive(e.target.checked)} /> I can drive and offer delivery</label>{canDrive && <label>Your vehicle<select value={vehicle} onChange={e => setVehicle(e.target.value)}><option value="sedan">Sedan · 4 units</option><option value="suv">SUV · 7 units</option><option value="truck">Truck · 12 units</option></select></label>}</div>{editingProfile && seller && <button type="button" className="secondary" disabled={profileSaving} onClick={() => restoreProfile(seller)}>Discard profile changes</button>}<button className="primary" disabled={profileSaving}>{profileSaving ? 'Saving profile…' : 'Save seller profile'} <ArrowRight size={16} /></button></form>}
+    {sellerId && <div className="seller-tabs" role="tablist" aria-label="Seller dashboard">{[['listings','Inventory'],['orders','Orders'],['deliveries','Deliveries'],['profile','Profile']].map(([id,label]) => <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => navigate(`/seller/${sellerId}/${id}`)}>{label}</button>)}</div>}
+
+    {loadError && <p className="error-message" role="alert">{loadError} <button className="secondary" onClick={() => setRetry(n => n + 1)}>Retry dashboard</button></p>}
     {error && <p className="error-message" role="alert">{error}</p>}{success && <p className="success-banner" role="status"><Check size={17} /> {success}</p>}
-    {tab === 'listings' ? <div className="seller-grid"><section className="publish-panel"><h2>Sell a piece.</h2><p className="muted">A good photo and the honest details.</p><form onSubmit={publish}>
+    {tab === 'listings' ? <div className="seller-grid"><section className="publish-panel" id="listing-editor"><h2>{editing ? 'Edit your listing' : 'Sell a piece.'}</h2>{editing && <button className="text-button" disabled={saving} onClick={() => { if (saving) return; setEditing(null); setTitle(''); setDescription(''); setImageUrl(''); setPrice(''); clearAnalysis() }}>Cancel editing</button>}<p className="muted">A good photo and the honest details.</p><form onSubmit={publish}><fieldset className="listing-editor-fields" disabled={saving} aria-label="Listing details">
       <label className={`photo-upload ${imageUrl ? 'has-photo' : ''}`}>
         {imageUrl ? <img src={imageUrl} alt="Your uploaded furniture" /> : <><ImagePlus size={30} strokeWidth={1.2} /><b>{uploading ? 'Uploading your photo…' : 'Give your furniture a close-up'}</b><span>Choose a JPEG, PNG, or WebP · up to 8 MB</span></>}
         <input aria-label="Furniture photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading || saving} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} />
@@ -132,7 +196,7 @@ export default function SellerView() {
       <PriceResearch key={sellerId} title={title} category={category} condition={condition} imageUrl={imageUrl} onApply={setPrice} />
       <div className="field-row"><label>Item size<select value={size} onChange={e => setSize(e.target.value)}><option value="1">Small · 1 unit</option><option value="2">Medium · 2 units</option><option value="3">Large · 3 units</option></select></label><label>Available from<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label></div>
       <div className="pickup-settings"><MapPin size={18} /><div><b>Pickup in {seller?.location.label || 'your neighborhood'}</b><p>{seller?.can_drive ? `You offer delivery with a ${seller.vehicle_type} (${seller.vehicle_capacity} units).` : 'Pickup only. Another seller may deliver your item.'}</p></div></div>
-      <button className="primary full" disabled={saving || uploading || !seller}>{saving ? 'Publishing…' : 'Publish listing'} <ArrowRight size={17} /></button><p className="fine-print">Your item can be included in complete furniture bundles.</p>
-    </form></section><section className="seller-inventory"><div className="section-heading"><div><p className="eyebrow">READY FOR THEIR NEXT HOME</p><h2>{seller?.name.split(' ')[0] || 'Your'}’s furniture</h2></div><span className="pill">{listings.filter(i => i.seller_id === sellerId).length} listings</span></div>{loading ? <p role="status">Loading furniture…</p> : listings.filter(i => i.seller_id === sellerId).length === 0 ? <div className="empty-results"><PackageCheck size={35} strokeWidth={1} /><h3>Your first listing starts here.</h3><p>Upload a photo and tell us about your piece.</p></div> : <div className="inventory-grid">{listings.filter(i => i.seller_id === sellerId).map(i => <article className="inventory-item" key={i.id}><div className="inventory-photo"><img src={i.image_url || categoryIcon(i.category)} alt={i.title} /><span className="pill">{!i.available ? 'Reserved / sold' : i.available_date > today() ? 'Upcoming' : 'Available'}</span></div><div className="inventory-info"><h3>{i.title}</h3><span>{money(i.price)}</span><p>{i.condition_score}/10 condition · {i.item_size} size units</p></div></article>)}</div>}<div className="seller-tip"><Truck size={24} strokeWidth={1.4} /><h3>A little drive can go a long way.</h3><p>If your vehicle fits the bundle, you could be its delivery lead. Your reward and complete pickup plan will appear under Delivery plans after a buyer reserves it.</p></div></section></div> : <section className="deliveries-section"><div className="section-heading"><div><p className="eyebrow">THE NEXT STOP: A NEW HOME</p><h2>Your delivery plans</h2></div></div>{deliveryLoading ? <p role="status">Loading delivery plans…</p> : deliveries.length === 0 ? <div className="empty-results"><Truck size={38} strokeWidth={1} /><h3>No delivery assignments yet.</h3><p>Reserve a seller-delivered bundle in buyer mode, then choose its driver’s profile here.</p></div> : deliveries.map(order => <article className="delivery-card" key={order.id}><div className="section-heading"><div><span className="pill"><Check size={13} /> Reserved · {order.id.slice(0, 8)}</span><h3>{order.bundle.listings.length} pieces. One new home.</h3></div><div className="driver-reward"><small>You earn</small><strong>{money(order.bundle.delivery_fee)}</strong>{order.bundle.reward_breakdown && <p className="reward-breakdown">Base {money(order.bundle.reward_breakdown.base)}<br />{order.bundle.distance_miles} miles × $1 = {money(order.bundle.reward_breakdown.distance)}<br />{order.bundle.reward_breakdown.additional_stops} additional stops × $2 = {money(order.bundle.reward_breakdown.stops_fee)}</p>}<small>Demo reward · no payment is processed</small></div></div><div className="detail-grid"><div><Suspense fallback={<p>Loading route…</p>}><RouteMap route={order.bundle.route} /></Suspense><p className="map-note">{order.bundle.route.warning} Driving time excludes loading.</p></div><div><p className="delivery-facts"><b>{order.bundle.distance_miles} miles</b> · {Math.ceil(order.bundle.duration_minutes)} min driving · {order.bundle.total_size}/{order.bundle.driver?.vehicle_capacity} capacity units</p><ol className="stop-list">{order.bundle.route.stops.map((s, index) => <li key={index}><span className={`stop-number ${s.kind}`}>{index + 1}</span><div><b>{s.name}{s.kind === 'buyer' ? ' · Deliver here' : ''}</b><p>{s.location.label || 'Pickup location'}</p><small>{order.bundle.listings.filter(i => s.listing_ids.includes(i.id)).map(i => i.title).join(', ')}</small></div></li>)}</ol></div></div></article>)}</section>}
+      <button className="primary full" disabled={saving || uploading || !seller || pendingListings.has(editing || 'new-listing')}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Publish listing'} <ArrowRight size={17} /></button><p className="fine-print">Your item can be included in complete furniture bundles.</p>
+    </fieldset></form></section><section className="seller-inventory"><div className="section-heading"><div><p className="eyebrow">READY FOR THEIR NEXT HOME</p><h2>{seller?.name.split(' ')[0] || 'Your'}’s furniture</h2></div><span className="pill">{listings.filter(i => i.seller_id === sellerId).length} listings</span></div>{loading ? <p role="status">Loading furniture…</p> : listings.filter(i => i.seller_id === sellerId).length === 0 ? <div className="empty-results"><PackageCheck size={35} strokeWidth={1} /><h3>Your first listing starts here.</h3><p>Upload a photo and tell us about your piece.</p></div> : <div className="inventory-grid">{listings.filter(i => i.seller_id === sellerId).map(i => <article className="inventory-item" key={i.id}><div className="inventory-photo"><img src={i.image_url || categoryIcon(i.category)} alt={i.title} /><span className="pill">{i.status === 'withdrawn' ? 'Withdrawn' : !i.available ? (i.status || 'Reserved / sold') : i.available_date > today() ? 'Upcoming' : 'Available'}</span></div><div className="inventory-info"><h3>{i.title}</h3><span>{money(i.price)}</span><p>{i.condition_score}/10 condition · {i.item_size} size units</p>{(i.available || i.status === 'withdrawn') && <div className="dialog-actions"><button className="secondary" disabled={saving || pendingListings.has(i.id)} onClick={() => edit(i)}>Edit</button><button className="secondary" disabled={pendingListings.has(i.id)} onClick={() => inventoryAction(i.id, i.status === 'withdrawn' ? 'publish' : 'withdraw')}>{i.status === 'withdrawn' ? 'Republish' : 'Withdraw'}</button></div>}</div></article>)}</div>}<div className="seller-tip"><Truck size={24} strokeWidth={1.4} /><h3>A little drive can go a long way.</h3><p>If your vehicle fits the bundle, you could be its delivery lead. Your reward and complete pickup plan will appear under Delivery plans after a buyer reserves it.</p></div></section></div> : sellerId && (tab === 'orders' || tab === 'deliveries') ? <OrderHistory key={sellerId + tab} sellerId={sellerId} deliveries={tab === 'deliveries'} /> : null}
   </main>
 }

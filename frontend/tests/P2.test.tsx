@@ -47,7 +47,7 @@ test('receipt reload shows persisted order and Find another retains preferences'
   let fresh: BuyerRequest | undefined
   globalThis.fetch = (async () => Response.json({ id: 'o1', bundle_id: 'b1', bundle, status: 'reserved', created_at: new Date().toISOString() })) as typeof fetch
   render(<BundlePage path="/orders/o1" onFindAnother={r => { fresh = r }} />)
-  await screen.findByRole('heading', { name: 'Your bundle is reserved.' })
+  await screen.findByRole('heading', { name: 'Order o1' })
   assert.equal(screen.queryByRole('button', { name: 'Choose this bundle' }), null)
   fireEvent.click(screen.getByRole('button', { name: 'Find another bundle' }))
   assert.deepEqual(fresh, request)

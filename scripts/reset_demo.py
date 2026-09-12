@@ -1,19 +1,18 @@
-"""Reset only the local demo database. Stop the backend before running this script."""
-from pathlib import Path
-import argparse
-import shutil
-from datetime import datetime
+"""Compatibility entrypoint: reset only the default local demo, preserving accounts.
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--confirm', action='store_true', help='Reset local listings/reservations after making a backup')
-args = parser.parse_args()
-path = Path(__file__).resolve().parents[1]/'backend/data/demo.json'
-if not args.confirm:
-    parser.error('Stop the backend, then pass --confirm to reset local demo inventory. Atlas is never modified.')
-if path.exists():
-    backup = path.with_name(f'demo.backup-{datetime.now():%Y%m%d-%H%M%S}.json')
-    shutil.copy2(path, backup)
-    path.unlink()
-    print(f'Local demo reset. Backup: {backup}. Fresh seeds will load on backend startup.')
-else:
-    print('No local database exists. Fresh seeds will load on backend startup.')
+Stop the backend first. Prefer demo_data.py for previews or a configured Atlas store.
+"""
+import argparse
+from pathlib import Path
+import sys
+from demo_data import main
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--confirm', action='store_true')
+    args = parser.parse_args()
+    if not args.confirm:
+        parser.error('Stop the backend, then pass --confirm. Atlas is never modified by this entrypoint.')
+    path = Path(__file__).resolve().parents[1] / 'backend/data/demo.json'
+    sys.argv = ['demo_data.py', '--local', str(path), '--reset', '--apply']
+    main()

@@ -8,7 +8,9 @@ let scrolled = ''
 dom.window.HTMLElement.prototype.scrollIntoView = function () { scrolled = this.getAttribute('aria-label') || '' }
 const { render, screen, fireEvent, waitFor, cleanup, act } = await import('@testing-library/react')
 const { default: React } = await import('react')
-const { default: App } = await import('../src/App')
+const { default: Marketplace } = await import('../src/App')
+const { AuthContext } = await import('../src/Auth')
+function App() { return <AuthContext.Provider value={{configured:true,authenticated:true,loading:false,login:()=>{},logout:()=>{}}}><Marketplace /></AuthContext.Provider> }
 const { saveSearch, readSearch } = await import('../src/searchSession')
 const { navigate, backToResults } = await import('../src/navigation')
 const request = { categories: ['chair'], budget: 100, buyer_has_car: true, buyer_location: { lat: 40.44, lng: -79.94, label: 'Oakland' }, radius_miles: 25, ranking: 'best_condition' as const }
@@ -18,6 +20,7 @@ function mockSearch(handler: (body: unknown) => Promise<Response>) {
   globalThis.fetch = (async (url, options) => {
     if (String(url).endsWith('/bundles/generate')) return handler(JSON.parse(String(options?.body)))
     if (String(url).endsWith('/categories')) return Response.json([{ id: 'chair', name: 'Chair' }])
+    if (String(url).includes('/orders/')) return Response.json({detail:'Order not found'}, {status:404})
     return Response.json({ storage: 'local_demo', routing: 'estimated' })
   }) as typeof fetch
 }

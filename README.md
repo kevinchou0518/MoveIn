@@ -13,7 +13,7 @@ Requires Python **3.12–3.14**, Node **22.12+**, and npm. Verified here on Pyth
 
 Open [the app](http://localhost:5173) and [the API docs](http://localhost:8000/docs).
 
-No keys are needed for the local demo. The first startup seeds 7 fictional sellers and 27 listings. Changes persist in `backend/data/demo.json`; photos persist in `backend/uploads/`. Use **one backend process** in local mode.
+The app can start without provider keys and display the public buyer form. Choose a persona using **Demo user** in the header; no login is required. See [demo accounts](docs/ACCOUNTS.md). The first startup seeds 7 fictional sellers and 27 listings. Without MongoDB, changes persist in `backend/data/demo.json`; photos persist in `backend/uploads/`. Use **one backend process** in local mode.
 
 To start services separately:
 
@@ -28,23 +28,29 @@ npm run dev
 
 ## Demo walkthrough
 
-1. In **Find furniture**, keep TV, TV stand, desk, chair, $300, Oakland, and **Bring it to me**.
+1. Select **Demo buyer** in the header. In **Find furniture**, keep TV, TV stand, desk, chair, $300, Oakland, and **Bring it to me**.
 2. Click **Build my bundle**. Compare the three complete options. Furniture subtotal fits $300; delivery is extra and included in the displayed total.
 3. Open **How these bundles were chosen** to see filtered listings, combination count, and enforced constraints.
 4. **View bundle** opens a separate review page with the selected driver, capacity, all items, route order, distance, time, and fee. Use **Swap item** to replace one piece while keeping the others fixed.
 5. **Choose this bundle** opens a confirmation dialog. Confirming reserves inventory and opens a durable reservation page; no payment occurs.
-6. Click **Find another bundle** to search the current inventory again with the same preferences, or view the assigned seller's delivery plan.
+6. **My orders** keeps your reservations and history. **View delivery plan** opens your buyer plan without entering seller mode. Cancel before fulfillment starts to release inventory, or confirm receipt after the driver starts delivery. **Find another bundle** searches current inventory with the same preferences.
 7. Try **I’ll pick it up** for a buyer → sellers → buyer route. Buyer vehicle size is assumed sufficient for this MVP.
 8. Try a $1 budget to demonstrate an explanatory no-results state.
-9. In seller mode, upload a JPEG/PNG/WebP and publish a listing, or create a new seller profile with pickup and vehicle details. That inventory participates in subsequent optimization.
+9. Select **Demo seller** in the header. Manage owned profiles, upload and publish furniture, edit or withdraw available listings, review orders containing your items, and start assigned deliveries. Buyers start and complete their own self-pickup orders.
 
-Reservations make listings unavailable. For repeated presentations, stop the backend and run:
+Reservations make listings unavailable. Manage demo records with the script below. It uses the configured MongoDB database, or local JSON when MongoDB is unset. Stop the app before applying changes.
 
 ```bash
-python3 scripts/reset_demo.py --confirm
+# Preview adding missing demo records and migrating old demo photo URLs
+.venv/bin/python scripts/demo_data.py
+.venv/bin/python scripts/demo_data.py --apply
+
+# Preview a full reset, then apply only to a dedicated demo database
+.venv/bin/python scripts/demo_data.py --reset
+.venv/bin/python scripts/demo_data.py --reset --apply
 ```
 
-This backs up and resets only the local demo data. Restart the backend to seed again. It does not touch Atlas or uploaded images.
+Seed mode preserves existing listings and reservations. **Reset replaces records in sellers, listings, categories, bundles, and orders, including custom records.** Accounts, upload ownership, and ownership of seeded seller profiles are preserved. Both modes back up existing data under ignored `backend/data/` before writing; MongoDB changes use a transaction. Uploaded files are retained. Use `--local /path/to/demo.json` to explicitly target a local store instead of Atlas. Restart the app afterward.
 
 ## Optional providers
 
@@ -64,7 +70,7 @@ Copy `.env.example` to `.env` in the repository root. Never commit real keys.
 
 Restart services after changing environment variables. Without Mapbox, routes use great-circle distance × 1.3 and 20 mph travel estimates. The visualization is explicitly a geographic schematic, **not road navigation**. Mapbox failures fall back to labeled estimates; an explicit unreachable-road result rejects that route. Live Mapbox matrices, road geometry, and map tiles were verified with the configured demo credentials. Atlas persistence and atomic checkout have been verified with the configured connection.
 
-Grok image analysis is available: upload a photo, click **Analyze photo**, review the suggestions, select fields, and click **Apply selected suggestions**. All values remain editable. Blank fields are selected by default; existing values require explicit selection. Photo estimates remain distinct from **Research comparable prices**, which uses web search and renders only cited USD comparables. A range is offered only when at least three cited used asking prices are available, and applying it is explicit. Buyers may also parse a plain-language request, review each extracted field, and select a resolved address before searching. Manual forms work without AI. No authentication, payment, messaging, or scheduling is implemented.
+Grok image analysis is available: upload a photo, click **Analyze photo**, review the suggestions, select fields, and click **Apply selected suggestions**. All values remain editable. Blank fields are selected by default; existing values require explicit selection. Photo estimates remain distinct from **Research comparable prices**, which uses web search and renders only cited USD comparables. A range is offered only when at least three cited used asking prices are available, and applying it is explicit. Buyers may also parse a plain-language request, review each extracted field, and select a resolved address before searching. Manual forms work without AI. Public demo personas separate account data; there is no secure login. Payment, messaging, and scheduling are not implemented.
 
 ## Optimization
 
@@ -98,7 +104,11 @@ P1 includes Grok photo suggestions and an itemized driver reward display. P2 add
 
 ## Demo photos
 
-Normalized demo images are included in `frontend/public/images/demo/`. Original files in `furniture-photos/` are kept locally and ignored by Git because they can contain GPS metadata. If you have the originals, run `.venv/bin/python scripts/prepare_demo_photos.py` to recreate the orientation-correct JPEG assets without copied EXIF metadata; a fresh checkout does not need this step. Existing databases are updated by `.venv/bin/python scripts/migrate_demo_photos.py --apply`; omit `--apply` for a dry run. The migration updates only unchanged seed IDs, adds three absent demo listings, and leaves custom inventory, availability, bundles, and order snapshots untouched.
+Normalized demo source images are committed in `backend/fixtures/photos/`. The demo-data script copies them into `backend/uploads/demo/` and stores `/uploads/demo/<listing-id>.jpg` in each photo listing's `image_url`. Backend startup also installs these files so fresh automatic seeds work. React renders the URL returned by the listings API; it does not import the demo photos from its public folder. Older order snapshots remain readable through a backend `/images/demo/` compatibility route.
+
+User uploads follow `POST /uploads`: the backend validates JPEG/PNG/WebP files (up to 8 MB), corrects orientation, resizes to at most 1600 pixels, and writes a JPEG under `backend/uploads/<uuid>.jpg`. MongoDB stores the URL and listing metadata, **not image bytes**. FastAPI serves the files, and Vite proxies `/uploads` during development. A hosted setup must route `/uploads` and legacy `/images/demo` to the backend and persist the uploads directory; MongoDB backups alone do not include photos. Cloud object storage is not implemented.
+
+Original files in `furniture-photos/` remain local because they can contain GPS metadata. With the originals, run `.venv/bin/python scripts/prepare_demo_photos.py` to regenerate the sanitized backend fixtures, then run the demo-data script to install them. A fresh checkout already includes the sanitized sources.
 
 ## Address selection
 

@@ -1,5 +1,38 @@
 # Verification
 
+## Review fixes — latest checkpoint
+
+- Pending listing saves disable the complete editor and Cancel editing. Successful saves reset the submitted form; failed saves retain the draft and re-enable editing. Success/failure regression tests verify the controls lock and subsequent drafts remain editable. All 50 frontend tests and the production build pass after this fix; backend code is unchanged.
+- Per-listing write locks disable conflicting inventory actions until the pending request settles. Synchronous submit guards also reject duplicate requests; locks release on success and failure. Regression tests cover withdrawal followed by editing, editing followed by withdrawal, and recovery after a failed withdrawal. All 48 frontend tests and the production build pass after this follow-up; backend code is unchanged from the 103-test checkpoint below.
+- Seller inventory refreshes preserve visible inventory and discard responses that overlap listing mutations, including refreshes started before or during an edit, creation, withdrawal, or republish.
+- Listing PATCH validates the merged record before category/image helpers. Malformed category/image values return 422; failed validation leaves stored records unchanged.
+- Saving withdrawn furniture reports that changes were saved and explicit republishing is still required.
+- 103 backend tests pass (two opt-in Atlas tests skipped), 45 frontend tests pass, and the production build passes. The running demo continues to use the separate local persona database; Atlas data is unchanged.
+
+## Demo persona replacement — current
+
+- Removed Auth0 SDK, JWT validation/dependency, and required Auth0 environment settings. Header selection supports Demo buyer, Second buyer, and Demo seller without login. All seven unowned seed seller profiles are assigned to the seller persona on startup; custom ownership is preserved.
+- 95 backend tests and 36 frontend tests pass; two opt-in Atlas tests skipped. Production build and diff whitespace checks pass. Obsolete JWT/login tests were replaced by demo identity, seed ownership/idempotency, and user-switching tests; existing order ownership and lifecycle regressions remain.
+- Browser verification confirmed the seller selector opens inventory with all seven profiles, and switching to Second buyer opens that buyer's order history without a login step.
+- Atlas mapping preview failed before writes with a TLS handshake error. No historical Atlas orders were changed. For testing, the running app uses the separate local `backend/data/persona-demo.json` via process-only environment overrides; `.env` is unchanged. Ordinary `./scripts/dev.sh` continues to use the configured Atlas database when connectivity is restored.
+- Earlier Auth0 setup and verification entries below are historical and superseded by this replacement.
+
+## Account and order management — current checkpoint
+
+- 100 backend tests pass; two optional Atlas tests are skipped in the ordinary suite. Both Atlas tests passed separately against disposable databases, which were removed afterward. Coverage includes account ownership, JWT validation, lifecycle permissions, cancellation/start races, safe inventory release, upload ownership, stale listing guards, CORS on auth failures, migration idempotency, local write rollback, and selected-seller mutation permissions/redaction.
+- 37 frontend tests pass, including buyer-only delivery navigation, cancelled receipts, reason/confirmation requirements, duplicate-click guards, pagination/status filtering, login gates, stale account responses, listing editing/withdrawal, and owned seller tabs. New regressions cover late refreshes after cancellation, failed refreshes retaining the confirmed status, reduced seller mutation responses, preservation/discard of profile drafts, and dashboard retry. Production TypeScript/Vite build passes.
+- Chrome inspected the public buyer form and protected-order gate at 390 × 844: both fit without horizontal overflow. My orders stays in buyer navigation. Authenticated controls were tested with isolated component fixtures, not a live Auth0 session.
+- Both development services were restarted with the configured Auth0 environment. Live browser sign-in reaches Auth0 but fails with **Callback URL mismatch**. Add `http://localhost:5173/auth/callback` and `http://127.0.0.1:5173/auth/callback` to the SPA application's Allowed Callback URLs. Live login/logout and separate-account fulfillment remain pending this dashboard correction and test-user login.
+- Test-user IDs and `backend/data/account-map.json` are still missing. The mapping migration is implemented and tested but has NOT changed the four historical live reservations. They will be assigned as cancelled after explicit buyer/seller mappings are provided, preserving available inventory.
+- No authentication bypass was added. The old local reset command now delegates to the shared reset implementation, preserving account and upload ownership records.
+
+## Demo storage follow-up
+
+- Demo photo sources now live in `backend/fixtures/photos/`; the backend serves installed copies from `/uploads/demo/`. Legacy receipt photo URLs remain supported.
+- `scripts/demo_data.py` previews seed/reset operations by default. Apply backs up existing records; MongoDB writes are transactional. Full reset is explicitly destructive to all app records, while seed mode preserves custom data and reservation history.
+- 79 backend tests pass, with one optional Atlas test skipped; production TypeScript/Vite build passes. Added coverage verifies idempotent seeding, preservation of edits and reservations, full reset behavior, backup-before-reset, dry-run behavior, and all eight current/legacy photo URLs.
+- Live Atlas seed apply migrated photo URLs while retaining 27 listings, 39 bundles, and 4 orders. No full live reset was performed.
+
 ## Completed
 
 - Empty workspace inspected; no prior files or Git checkout existed.
