@@ -1,5 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
-import { Step, Steps, useSlidePageNumber } from '@open-slide/core';
+import { Step, Steps, useIsActivePage, useSlidePageNumber } from '@open-slide/core';
+import demoPoster from './assets/movein-demo-poster.png';
+const demoVideo = new URL('./assets/movein-demo.mp4', import.meta.url).href;
 import type { DesignSystem, Page, SlideMeta, SlideTransition } from '@open-slide/core';
 
 export const design: DesignSystem = {
@@ -25,7 +28,7 @@ function Frame({ children, label, dark = false }: { children: ReactNode; label: 
   const { current, total } = useSlidePageNumber();
   return <section style={{ width: '100%', height: '100%', boxSizing: 'border-box', position: 'relative', background: dark ? text : bg, color: dark ? bg : text, fontFamily: 'var(--osd-font-body)', padding: 120 }}>
     <div style={{ position: 'absolute', top: 68, left: 120, right: 120, display: 'flex', justifyContent: 'space-between', fontSize: 23, letterSpacing: 2 }}>
-      <span>SNACK OVERFLOW <span style={{ opacity: .45 }}> / </span> HACKCMU 2026</span>
+      <span>MoveIn <span style={{ opacity: .45 }}> / </span> HACKCMU 2026</span>
       <span style={{ opacity: .65 }}>OPTIMIZATION</span>
     </div>
     {children}
@@ -65,36 +68,40 @@ function Room({ furnished = false }: { furnished?: boolean }) {
   </svg>;
 }
 
-const Arrival: Page = () => <Frame label="Furniture bundles for students without cars">
-  <div style={{ position: 'absolute', left: 120, top: 195, width: 990 }}>
-    <Label>A new student in Pittsburgh</Label>
-    <h1 style={{ fontFamily: 'var(--osd-font-display)', fontSize: 'var(--osd-size-hero)', lineHeight: 1.03, fontWeight: 400, letterSpacing: -6, margin: '36px 0' }}>New city.<br/>Empty room.<br/><span style={{ color: accent }}>No car.</span></h1>
-    <p style={{ fontSize: 36, lineHeight: 1.5, margin: 0, color: muted }}>Four furniture essentials. A $300 furniture budget.</p>
+const Arrival: Page = () => <Frame label="Built by Snack Overflow">
+  <div style={{ position: 'absolute', left: 120, top: 185, width: 1010 }}>
+    <Label>New city. Empty room. No car.</Label>
+    <h1 style={{ fontFamily: 'var(--osd-font-display)', fontSize: 'var(--osd-size-hero)', lineHeight: 1.03, fontWeight: 400, letterSpacing: -6, margin: '30px 0 24px' }}>MoveIn</h1>
+    <p style={{ fontFamily: 'var(--osd-font-display)', fontSize: 76, lineHeight: 1.12, letterSpacing: -2, margin: 0 }}>Secondhand furniture,<br/>simplified.</p>
   </div>
-  <div style={{ position: 'absolute', right: 120, top: 263 }}><Room/></div>
-  <div style={{ position: 'absolute', right: 160, top: 831, fontSize: 24, color: muted }}>A place to start. A way to bring it home.</div>
+  <div style={{ position: 'absolute', right: 120, top: 205 }}><Room/></div>
+  <div style={{ position: 'absolute', left: 120, right: 120, top: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${line}`, paddingTop: 36, fontSize: 38, color: accent }}>
+    <span>Save time</span><span aria-hidden="true" style={{ color: muted }}>·</span><span>Save money</span><span aria-hidden="true" style={{ color: muted }}>·</span><span>Optimize bundles &amp; routes</span>
+  </div>
 </Frame>;
 
-function Constraint({ number, title, detail }: { number: string; title: string; detail: string }) {
-  return <div style={{ display: 'flex', gap: 25, padding: '26px 0', borderBottom: `1px solid ${line}` }}>
-    <span style={{ fontSize: 25, color: muted, paddingTop: 8 }}>{number}</span>
-    <div><div style={{ fontSize: 39 }}>{title}</div><div style={{ fontSize: 29, color: muted, marginTop: 12 }}>{detail}</div></div>
+function ValueIcon({ kind }: { kind: 'time' | 'money' | 'route' }) {
+  return <svg width="76" height="76" viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {kind === 'time' && <><circle cx="40" cy="40" r="28"/><path d="M40 22v20l14 9"/></>}
+    {kind === 'money' && <><rect x="10" y="20" width="60" height="40" rx="8"/><circle cx="40" cy="40" r="11"/><path d="M19 40h2M59 40h2"/></>}
+    {kind === 'route' && <><circle cx="17" cy="57" r="7"/><circle cx="63" cy="23" r="7"/><path d="M24 57h28a11 11 0 000-22H28a12 12 0 010-24h18M43 6l5 5-5 5"/></>}
+  </svg>;
+}
+function ValueCard({ kind, title, children }: { kind: 'time' | 'money' | 'route'; title: string; children: ReactNode }) {
+  return <div style={{ background: soft, borderRadius: 'var(--osd-radius)', padding: '40px 34px', boxSizing: 'border-box', height: 452 }}>
+    <div style={{ color: accent }}><ValueIcon kind={kind}/></div>
+    <h3 style={{ fontSize: 43, fontWeight: 500, letterSpacing: -1, margin: '28px 0 30px' }}>{title}</h3>
+    <div style={{ fontSize: 32, lineHeight: 1.5, color: muted }}>{children}</div>
   </div>;
 }
-function Item({ kind, label, x, y }: { kind: 'desk' | 'chair' | 'tv' | 'stand'; label: string; x: number; y: number }) {
-  return <div style={{ position: 'absolute', left: x, top: y, width: 218, height: 189, background: '#FFFDF8', border: `1px solid ${line}`, borderRadius: 'var(--osd-radius)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}><Furniture kind={kind} size={100}/><span style={{ fontSize: 27 }}>{label}</span></div>;
-}
-const Problem: Page = () => <Frame label="The challenge / affordability + transportation">
-  <Heading>Finding furniture is<br/>only half the problem.</Heading>
-  <div style={{ position: 'absolute', left: 120, top: 427, width: 845, height: 438 }}>
-    <svg width="845" height="438" viewBox="0 0 845 438" fill="none" style={{ position: 'absolute' }} aria-hidden="true"><path d="M160 92L430 318 695 110M150 330L695 110M160 92L665 343" stroke="#B6C6B3" strokeWidth="3" strokeDasharray="10 10"/></svg>
-    <Item kind="desk" label="Desk" x={0} y={0}/><Item kind="chair" label="Chair" x={289} y={238}/><Item kind="tv" label="TV" x={565} y={18}/><Item kind="stand" label="TV stand" x={0} y={238}/>
+const Problem: Page = () => <Frame label="Less effort. More value. A feasible pickup plan.">
+  <Heading>What we optimize</Heading>
+  <div style={{ position: 'absolute', left: 120, right: 120, top: 345, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 28 }}>
+    <ValueCard kind="time" title="Time"><div>Buyers: less searching.</div><div>Sellers: easier listing.</div><div>Coordinated pickups.</div></ValueCard>
+    <ValueCard kind="money" title="Money"><div>Buy within budget.</div><div>Turn unused furniture<br/>into cash.</div></ValueCard>
+    <ValueCard kind="route" title="Bundles & routes"><div>Categories, budget, capacity.</div><div>An eligible seller driver.</div><div>Planned pickup order.</div></ValueCard>
   </div>
-  <div style={{ position: 'absolute', left: 1100, top: 421, width: 680 }}>
-    <Constraint number="01" title="Does the whole set fit the budget?" detail="Prices add up across sellers."/>
-    <Constraint number="02" title="Who can bring it home?" detail="A willing seller needs a vehicle."/>
-    <Constraint number="03" title="Can everything fit?" detail="The full load must fit one vehicle."/>
-  </div>
+  <div style={{ position: 'absolute', left: 120, top: 850, fontSize: 34, color: accent }}>Let’s see it in action. <span aria-hidden="true">→</span></div>
 </Frame>;
 
 function Stage({ tag, title, children }: { tag: string; title: string; children: ReactNode }) {
@@ -117,30 +124,30 @@ const Engine: Page = () => <Frame label="Two-stage optimization / OR-Tools CP-SA
   </div>
 </Frame>;
 
-function RequestTile({ kind, title }: { kind: 'desk' | 'chair' | 'tv' | 'stand'; title: string }) {
-  return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, height: 205, background: soft, borderRadius: 'var(--osd-radius)' }}><Furniture kind={kind}/><span style={{ fontSize: 29 }}>{title}</span></div>;
-}
-function Beat({ number, title, detail }: { number: string; title: string; detail: string }) {
-  return <div style={{ display: 'flex', gap: 25, alignItems: 'flex-start', marginBottom: 34 }}><span style={{ fontSize: 25, color: muted, paddingTop: 7 }}>{number}</span><div><strong style={{ fontSize: 36, fontWeight: 500 }}>{title}</strong><div style={{ fontSize: 29, lineHeight: 1.5, color: muted, marginTop: 10 }}>{detail}</div></div></div>;
-}
-const Demo: Page = () => <Frame label="Live demo / furniture budget excludes delivery">
-  <Heading>Four items.<br/>One coordinated pickup plan.</Heading>
-  <div style={{ position: 'absolute', left: 120, top: 422, width: 825 }}>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}><RequestTile kind="tv" title="TV"/><RequestTile kind="stand" title="TV stand"/><RequestTile kind="desk" title="Desk"/><RequestTile kind="chair" title="Chair"/></div>
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 40, borderBottom: `1px solid ${line}`, paddingBottom: 29 }}><span style={{ fontSize: 35 }}>$300 <span style={{ color: muted }}>for furniture</span></span><span style={{ fontSize: 35 }}>No car</span></div>
-    <div style={{ fontSize: 28, color: muted, marginTop: 25 }}>Pittsburgh · Seller-assisted delivery</div>
-  </div>
-  <div style={{ position: 'absolute', left: 1080, top: 422, width: 710, paddingLeft: 48, borderLeft: `1px solid ${line}`, boxSizing: 'border-box' }}>
-    <Label style={{ marginBottom: 34 }}>Live product walkthrough</Label>
-    <Beat number="01" title="Build the bundle" detail="Compare complete furniture options."/>
-    <Beat number="02" title="See how it gets home" detail="Driver, capacity and pickup route."/>
-    <Beat number="03" title="Understand the total" detail="Furniture + delivery, shown separately."/>
-  </div>
-</Frame>;
+// A continuous recording of the real app, with an edited camera and cursor.
+const Demo: Page = () => {
+  const active = useIsActivePage();
+  const video = useRef<HTMLVideoElement>(null);
+  const [needsPlay, setNeedsPlay] = useState(false);
+  useEffect(() => {
+    const element = video.current;
+    if (!element) return;
+    if (active) {
+      element.currentTime = 0;
+      element.play().catch(() => setNeedsPlay(true));
+    } else element.pause();
+    return () => element.pause();
+  }, [active]);
+  return <div style={{ width: '100%', height: '100%', position: 'relative', background: '#FAF9F5' }}>
+    {active ? <video ref={video} src={demoVideo} poster={demoPoster} muted playsInline controls preload="auto" onPlay={() => setNeedsPlay(false)} aria-label="MoveIn demo: buyer auto-fill, bundle reservation, seller delivery and AI photo listing" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}/>
+      : <img src={demoPoster} alt="MoveIn product demo" style={{ width: '100%', height: '100%', objectFit: 'contain' }}/>}
+    {active && needsPlay && <button onClick={() => video.current?.play()} style={{ position: 'absolute', left: 810, top: 485, width: 300, height: 100, background: '#193C32', color: '#F6F3EB', border: 0, borderRadius: 50, fontSize: 32, cursor: 'pointer' }}>Play demo ▶</button>}
+  </div>;
+};
 
 const Closing: Page = () => <Frame dark label="Built by Snack Overflow">
   <div style={{ position: 'absolute', left: 120, top: 190, width: 1100 }}>
-    <Label style={{ color: '#B9CABA' }}>For students without cars</Label>
+    <Label style={{ color: '#B9CABA' }}>MoveIn · For students without cars</Label>
     <h2 style={{ fontFamily: 'var(--osd-font-display)', fontSize: 112, fontWeight: 400, letterSpacing: -5, lineHeight: 1.08, margin: '42px 0' }}>From an empty room<br/>to a plan to<br/><span style={{ color: '#BDCEA6' }}>bring it home.</span></h2>
     <p style={{ fontSize: 35, lineHeight: 1.5, color: '#CFD9CD', marginTop: 44 }}>Furniture selection. Transport capacity. Pickup planning.</p>
   </div>
@@ -148,11 +155,11 @@ const Closing: Page = () => <Frame dark label="Built by Snack Overflow">
 </Frame>;
 
 export const notes: string[] = [
-  `TARGET 20 SECONDS\nImagine arriving in Pittsburgh as a new student. Your room is empty. You need a desk, a chair, a TV, and a TV stand. You have three hundred dollars for furniture—but you don’t have a car.\n\nTeam: Snack Overflow. Product name is not yet decided.`,
-  `TARGET 25 SECONDS\nEach item might be affordable on its own. But they’re scattered across different sellers. Which combination fits your budget? Who can transport it? Will everything fit in their vehicle? Those decisions affect each other.\n\nThe scattered-item graphic is conceptual, not a geographic map or a measured example.`,
+  `TARGET 20 SECONDS\nNew city. Empty room. No car. For a student arriving in Pittsburgh, finding secondhand furniture is only the beginning. MoveIn simplifies the next steps: saving time, making the budget go further, and choosing furniture bundles with a pickup plan. Built by Snack Overflow.\n\nThe room is a conceptual illustration. Value statements are not measured savings.`,
+  `TARGET 25 SECONDS\nWe focus on three things. Time: less searching and matching for buyers, easier listing and clear pickup plans for sellers. Money: secondhand furniture within the buyer’s budget, and cash for sellers’ unused items. Finally, bundles and routes: matching categories, budget, driver eligibility, and capacity, then planning the pickup order. Let’s see it in action.\n\nFurniture budget excludes delivery fees. Do not claim measured savings, the lowest total price, or a globally optimal route. Algorithm details follow the demo.`,
+  `CONTINUOUS VIDEO DEMO — ABOUT 61 SECONDS\nThe video starts automatically and plays both scenarios. Native controls support pause, replay and scrubbing. Wait for it to finish, then press Right to advance to the technology page.\nScenario 1: type a natural-language request; Auto-fill directly updates the buyer form. Build a bundle, review the route, choose it and confirm the reservation. Switch to Jordan and show that same order in Deliveries.\nScenario 2: upload a furniture photo, run Grok analysis, review and select suggested fields, then apply them to the listing form.\nRecorded from the real app on September 12, 2026, with independent local demo inventory and live AI/Mapbox responses. Cursor and camera motion are edited; idle waits are shortened. Buyer total in this run: $210 furniture + $12.75 delivery = $222.75. A demo reservation was created only in the isolated database. No payment or listing publication occurred. Photo price is an AI estimate, not researched pricing.`,
   `TARGET 35 SECONDS\nWe turn those decisions into a constrained optimization problem. First, OR-Tools CP-SAT selects furniture bundles that cover every requested category, stay within the furniture budget, and have an eligible seller driver with enough capacity. Then we optimize pickup routes for candidate bundles and rank the results using travel time, delivery cost, and the buyer’s preference.\n\nPress Right once to reveal candidate-to-result pipeline, then again to advance.\n\nQ&A: Selected seller must drive; capacity uses abstract size units. Candidate generation and routing are separate, bounded stages, not a guarantee of global optimality. AI supports input and listing suggestions; it does not choose the final bundles.`,
-  `TARGET 60 SECONDS — SWITCH TO THE RUNNING PRODUCT\n0–10s: Show prefilled TV + TV stand + desk + chair, $300 furniture budget, confirmed Pittsburgh location, seller delivery. Say: Here’s our student’s request: four items, a three-hundred-dollar furniture budget, and seller delivery.\n10–25s: Build my bundle. Say: The system gives us complete options, with furniture and delivery costs shown separately.\n25–45s: Open one result; point to driver, capacity and route. Say: This seller can carry the full bundle. The pickup plan starts at their location, visits the other sellers, and ends at the student’s home.\n45–60s: Show constraint explanation if time permits, then return to slides. Say: Each option covers the requested items and passes the budget, driver, and capacity checks.\n\nREHEARSAL: Verify available inventory and current results before presenting. Use screenshots from that exact run as fallback. Do not promise a fixed price or time. Do not reserve inventory during repeated rehearsals. This slide is a walkthrough cue, not an application screenshot.`,
-  `TARGET 25 SECONDS\nFor students without cars, getting furniture home is part of finding furniture. We bring item selection, transport capacity, and pickup planning into one flow—so an empty room becomes a practical plan. We’re Snack Overflow.\n\nThe room is a conceptual illustration, not a claim of completed delivery. No measured savings are claimed in this draft. Later, add a validated example or comparison only after the demo dataset is fixed.\n\nTotal planned duration: 2:45, with 15 seconds of buffer inside the competition’s 3-minute presentation-plus-demo limit.`,
+  `TARGET 25 SECONDS\nFor students without cars, getting furniture home is part of finding furniture. MoveIn brings item selection, transport capacity, and pickup planning into one flow—so an empty room becomes a practical plan. We’re Snack Overflow.\n\nThe room is a conceptual illustration, not a claim of completed delivery. No measured savings are claimed in this draft. Later, add a validated example or comparison only after the demo dataset is fixed.\n\nTotal planned duration: about 2:46, with about 14 seconds of buffer inside the competition’s 3-minute presentation-plus-demo limit.`,
 ];
-export const meta: SlideMeta = { title: 'No car. New home. — Snack Overflow', createdAt: '2026-09-12T14:46:28.883Z' };
-export default [Arrival, Problem, Engine, Demo, Closing] satisfies Page[];
+export const meta: SlideMeta = { title: 'MoveIn — Built by Snack Overflow', createdAt: '2026-09-12T14:46:28.883Z' };
+export default [Arrival, Problem, Demo, Engine, Closing] satisfies Page[];
