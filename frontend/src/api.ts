@@ -1,4 +1,5 @@
-const BASE = import.meta.env.VITE_API_URL || '/api'
+export class ApiError extends Error { constructor(message:string,public status:number) { super(message) } }
+const BASE = import.meta.env?.VITE_API_URL || '/api'
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response
   try {
@@ -7,7 +8,7 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     const detail = body?.detail
-    throw new Error(typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map((d: { msg: string }) => d.msg).join(' ') : 'Something went wrong. Please try again.')
+    throw new ApiError(typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map((d: { msg: string }) => d.msg).join(' ') : 'Something went wrong. Please try again.', response.status)
   }
   return response.json() as Promise<T>
 }

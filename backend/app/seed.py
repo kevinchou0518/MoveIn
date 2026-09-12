@@ -1,5 +1,6 @@
 from datetime import date
 from app.schemas import Seller, Listing
+from app.demo_photos import PHOTO_LISTINGS, photo_fields
 
 
 def seed_data():
@@ -36,6 +37,9 @@ def seed_data():
         ('chair-05', 'sam', 'Simple oak chair', 'chair', 20, 7.7, 1),
         ('sofa-01', 'riley', 'Two-seat linen sofa', 'sofa', 130, 8.4, 3),
         ('table-01', 'jordan', 'Round dining table', 'table', 55, 8.5, 3),
+        ('lamp-01', 'jordan', 'Two-shade floor lamp', 'lamp', 20, 8.0, 2),
+        ('vacuum-01', 'alex', 'Shark stick vacuum', 'vacuum', 40, 8.0, 1),
+        ('fan-01', 'riley', 'Honeywell compact fan', 'fan', 15, 8.0, 1),
         ('tv-sold', 'sam', 'Already sold TV', 'tv', 10, 9.5, 1),
         ('desk-future', 'maya', 'Not yet available desk', 'desk', 15, 9.5, 2),
         ('tv-premium', 'jordan', 'Premium OLED television', 'tv', 650, 9.8, 3),
@@ -47,4 +51,5 @@ def seed_data():
                         item_size=size, image_url=f'/images/{category}.svg', location=by_id[sid].location,
                         available=lid!='tv-sold', available_date=date(2099,1,1) if lid=='desk-future' else date(2020,1,1))
                 for lid,sid,title,category,price,condition,size in rows]
+    listings = [i.model_copy(update=photo_fields(i.id)) if i.id in PHOTO_LISTINGS else i for i in listings]
     return sellers, listings

@@ -15,10 +15,10 @@ def delivery_fee(distance: float, seller_count: int) -> float:
 
 
 def generate_bundles(listings: list[Listing], sellers: dict[str, Seller], request: BundleRequest,
-                     provider: MapProvider, candidate_limit: int = 10, result_limit: int = 3):
+                     provider: MapProvider, candidate_limit: int = 10, result_limit: int = 3, fixed_sets=None):
     candidates, rejected = filter_candidates(listings, request, sellers)
     counts = Counter(i.category for i in candidates)
-    sets, status = optimize_bundles(candidates, sellers, request, limit=candidate_limit)
+    sets, status = (fixed_sets, 'fixed_items') if fixed_sets is not None else optimize_bundles(candidates, sellers, request, limit=candidate_limit)
     results, cache, route_rejections = [], {}, 0
     for items in sets:
         drivers = [None] if request.buyer_has_car else eligible_drivers(items, sellers)
@@ -30,7 +30,9 @@ def generate_bundles(listings: list[Listing], sellers: dict[str, Seller], reques
                 route_rejections += 1
                 continue
             fee = delivery_fee(route['distance_miles'], len({i.seller_id for i in items})) if driver else 0
-            options.append((round(route['duration_minutes']*.35 + fee*.25, 3), driver.id if driver else '', driver, route, fee))
+            balanced_cost=round(route['duration_minutes']*.35 + fee*.25, 3)
+            primary=fee if request.ranking=='lowest_cost' else route['duration_minutes'] if request.ranking=='fastest_trip' else balanced_cost
+            options.append(((primary, balanced_cost), driver.id if driver else '', driver, route, fee))
         if not options:
             continue
         _, _, driver, route, fee = min(options, key=lambda x: (x[0], x[1]))
@@ -43,11 +45,14 @@ def generate_bundles(listings: list[Listing], sellers: dict[str, Seller], reques
                         'seller_count': len(bundle_sellers), 'total_size': sum(i.item_size for i in items),
                         'transportation_mode': 'buyer_pickup' if request.buyer_has_car else 'seller_delivery',
                         'driver': driver.public() if driver else None, 'delivery_fee': fee,
+                        'reward_breakdown': {'base': 5, 'distance': round(fee-5-2*max(0,len(bundle_sellers)-1), 2), 'additional_stops': max(0,len(bundle_sellers)-1), 'stops_fee': 2*max(0,len(bundle_sellers)-1)} if driver else None,
                         'total': round(total+fee, 2), 'route': route,
                         'distance_miles': route['distance_miles'], 'duration_minutes': route['duration_minutes'],
                         'selection_score': score, 'final_score': round(score-route['duration_minutes']*.35-fee*.25, 2),
+                        'request': request.model_dump(mode='json'), 'ranking': request.ranking,
+                        'ranking_reason': f"${round(total+fee,2):.2f} total · {round(sum(i.condition_score for i in items)/len(items),1)}/10 condition · {round(route['duration_minutes'])} min trip",
                         'created_at': utcnow().isoformat()})
-    results.sort(key=lambda b: (-b['final_score'], tuple(i['id'] for i in b['listings'])))
+    results.sort(key=lambda b: (b['total'] if request.ranking=='lowest_cost' else -sum(i['condition_score'] for i in b['listings'])/len(b['listings']) if request.ranking=='best_condition' else b['duration_minutes'] if request.ranking=='fastest_trip' else -b['final_score'], -b['final_score'], tuple(i['id'] for i in b['listings'])))
     results = results[:result_limit]
     # Road geometry is needed only for the final cards, after all driver/route decisions.
     for bundle in results:

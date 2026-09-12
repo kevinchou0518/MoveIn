@@ -12,9 +12,13 @@ P0, in order:
 5. Connect a React buyer form, bundle comparison, route details, checkout, seller publishing with photo upload, and delivery assignments.
 6. Verify constraints, routing, persistence, checkout conflicts, API contracts, frontend build, and both browser flows.
 
-P1 (only after P0 works): optional Grok image analysis with editable suggestions; expand driver reward presentation. Authentication is deferred.
+P1 implemented after P0 verification: optional Grok image analysis with explicit review/apply controls and itemized driver rewards. Authentication remains deferred.
 
 P2: comparable-price research, natural-language requirements, item swaps, ranking improvements.
+
+P2 is implemented. Bundle results link to durable `/bundles/{id}` pages. Checkout requires a native confirmation dialog and redirects to `/orders/{id}`; the receipt can fresh-generate with the saved request against current inventory. Browser history supports back/forward navigation, page focus resets, and reduced-motion preferences.
+
+Results use `/buyer/results?search=<id>`, with a versioned per-tab request snapshot in session storage and an in-memory fallback. Every results entry regenerates current inventory. Back-to-results traverses tracked browser history; direct bundle links recover from the stored bundle request. Missing search snapshots return to the buyer form. No database migration is required.
 
 ## Decisions
 
@@ -59,10 +63,17 @@ All JSON; validation errors use FastAPI's `detail` array; business errors use `d
 | POST /listings | ListingCreate: existing seller_id, title, category, description, price, condition, condition_score, item_size, image_url, available_date | 201 Listing |
 | POST /sellers | name, location, can_drive, vehicle_type | 201 Seller |
 | POST /uploads | multipart `file`: JPEG/PNG/WebP, max 8 MB | {image_url} |
-| POST /listings/analyze | P1, image_url and optional seller context | 503 until configured/implemented; must not block publishing |
+| POST /listings/analyze | uploaded image_url, optional title and description | Structured editable suggestions; 422 invalid request, 404 missing upload, 503 unavailable/configuration error, 504 timeout, 502 invalid upstream output |
 | POST /bundles/generate | BundleRequest | {bundles: Bundle[], diagnostics, message} |
 | POST /bundles/{id}/checkout | no payment/body required | 201 Order (idempotent for same bundle), 404 unknown, 409 unavailable, 410 expired |
 | GET /deliveries/{seller_id} | — | Order[] for the selected delivery lead |
+| GET /categories | — | Shared Category[] |
+| POST /categories | `{name}` | 201 idempotent Category |
+| POST /buyer/parse | `{text}` | Nullable buyer requirement draft and explanations |
+| POST /listings/research-price | title, category, condition, optional brand/model | Up to five cited comparables and optional used-asking range |
+| GET /bundles/{id} | — | Stored bundle plus nullable order ID |
+| POST /bundles/{id}/alternatives | `{listing_id}` | Up to three new bundle versions with exactly one replacement |
+| GET /orders/{id} | — | Durable reservation and full bundle snapshot |
 
 Full interactive contract: FastAPI `/docs`; machine-readable `/openapi.json`.
 
@@ -81,3 +92,24 @@ The optimizer's hard constraints and one successful API response come first. Exp
 - [Mapbox Matrix API](https://docs.mapbox.com/api/navigation/matrix/)
 - [Mapbox Directions API](https://docs.mapbox.com/api/navigation/directions/)
 - [FastAPI uploads](https://fastapi.tiangolo.com/tutorial/request-files/)
+
+## P1 contracts
+
+Analysis returns nullable title, description, category, condition, condition_score, estimated_product, suggested_price_min/max, plus visible_issues and confidence. Categories and condition values match listing creation; office_chair normalizes to chair. Scores are 0–10, confidence 0–1, and finite USD price bounds must be ordered and both present or both null. Images must be JPEG files returned by the upload endpoint; arbitrary URLs and paths are rejected. The server sends base64 image data and seller text to xAI Responses with JSON Schema, store=false, and a 30-second timeout without retries. No analysis record or inventory mutation is made.
+
+Sellers trigger analysis explicitly. Null suggestions cannot be applied. Existing values are unchecked; blank fields are selected when results arrive. Accepted visible issues join the editable description, and the price midpoint is rounded to cents. Photo replacement, profile changes, publishing, and unmount invalidate pending results. Item size and availability remain manual.
+
+New bundles and order snapshots include nullable reward_breakdown with base, distance, additional_stops, and stops_fee. Self-pickup returns null and zero delivery fee. Legacy snapshots display their stored total without needing migration.
+
+## Address selection
+
+Shared buyer/seller LocationPicker replaces latitude/longitude fields with explicit text search and named result selection. GET /locations/search?q=… validates 3–200 characters and returns Location[] (lat, lng, label). Mapbox Geocoding v6 uses a Pittsburgh proximity bias, US country filter, five results, autocomplete=false and permanent=true; requests are triggered by Search or Enter rather than every keystroke. Provider failures return a sanitized 503; demo neighborhood shortcuts remain usable. Changing the query invalidates the selected coordinates and stale responses are ignored. Existing seller/listing/bundle schemas remain unchanged.
+
+## P2 contracts
+
+- Sellers explicitly create flexible categories. Names are whitespace/case normalized and receive deterministic IDs; `office_chair` remains a `chair` alias. Buyers search the shared catalog and select up to six unique categories.
+- Ranking changes deterministic optimizer weights and route reranking. Every returned option still satisfies budget, availability, radius, driver membership, and capacity constraints. AI never chooses inventory, drivers, or routes.
+- A swap creates a new stored bundle and changes exactly one listing in the same category. Retained items, price, current availability, radius, delivery leadership, capacity, and route feasibility are rechecked. The source bundle is never mutated.
+- Buyer text parsing returns nullable fields only. Every proposed field requires review and explicit selection; address text clears coordinates until the buyer selects a geocoded result.
+- Price research makes at most five xAI web-search tool calls with a 60-second timeout and no retry. Only comparables whose URLs appear in response citations are displayed. Used asking, sold, and new retail evidence stay labeled; a range is computed only from three or more cited used asking prices.
+- The eight supplied photos are normalized to at most 1600 px and stored without EXIF metadata. Their listing facts are explicitly fictional. Migration targets only unchanged seed IDs and preserves reservation state and historical snapshots.

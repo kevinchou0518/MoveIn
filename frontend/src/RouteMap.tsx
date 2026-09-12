@@ -3,7 +3,7 @@ import type { Route } from './types'
 
 export default function RouteMap({ route }: { route: Route }) {
   const host = useRef<HTMLDivElement>(null)
-  const token = import.meta.env.VITE_MAPBOX_TOKEN
+  const token = import.meta.env?.VITE_MAPBOX_TOKEN
   useEffect(() => {
     if (!token || !host.current) return
     let canceled = false

@@ -9,6 +9,9 @@ node_modules/
 dist/
 backend/data/
 backend/uploads/
+# Keep original photo files (including GPS metadata) local.
+# Normalized demo assets in frontend/public/images/demo/ are committed.
+/furniture-photos/
 artifacts/
 .DS_Store
 

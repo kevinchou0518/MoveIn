@@ -10,6 +10,7 @@ from threading import RLock
 from uuid import uuid4
 from app.schemas import Listing, Seller, utcnow
 from app.seed import seed_data
+from app.catalog import builtin_categories, category_record
 
 
 class StoreError(Exception):
@@ -47,6 +48,42 @@ class LocalStore:
             self.data = {'sellers': {s.id:s.model_dump(mode='json') for s in sellers},
                          'listings': {i.id:i.model_dump(mode='json') for i in listings}, 'bundles': {}, 'orders': {}}
             self._save()
+
+        if 'categories' not in self.data:
+            self.data['categories'] = {c['id']:c for c in builtin_categories()}
+            for item in self.data['listings'].values():
+                cid=item['category']
+                self.data['categories'].setdefault(cid, {'id':cid,'name':cid.replace('_',' ').title(),'normalized_name':cid.replace('_',' ')})
+            self._save()
+
+    def categories(self):
+        with self.lock:
+            return sorted(deepcopy(list(self.data['categories'].values())),key=lambda c:c['name'])
+
+    def add_category(self, name):
+        record=category_record(name)
+        with self.lock:
+            existing=next((c for c in self.data['categories'].values() if c['normalized_name']==record['normalized_name']),None)
+            if existing: return deepcopy(existing)
+            self.data['categories'][record['id']]=record
+            self._save()
+            return deepcopy(record)
+
+    def get_bundle(self, bid):
+        with self.lock:
+            bundle=self.data['bundles'].get(bid)
+            if not bundle: raise StoreError(404,'Bundle not found. Start a fresh search.')
+            return deepcopy(bundle)
+
+    def get_order(self, oid):
+        with self.lock:
+            order=self.data['orders'].get(oid)
+            if not order: raise StoreError(404,'Reservation not found.')
+            return deepcopy(order)
+
+    def order_for_bundle(self,bid):
+        with self.lock:
+            return deepcopy(next((o for o in self.data['orders'].values() if o['bundle_id']==bid),None))
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -118,15 +155,41 @@ class MongoStore:
         self.client = MongoClient(uri, serverSelectionTimeoutMS=5000)
         self.client.admin.command('ping')
         self.db = self.client[database]
-        for name in ('sellers', 'listings', 'bundles', 'orders'):
+        for name in ('sellers', 'listings', 'bundles', 'orders', 'categories'):
             self.db[name].create_index('id', unique=True)
         self.db.orders.create_index('bundle_id', unique=True)
+        self.db.categories.create_index('normalized_name', unique=True)
+        for record in builtin_categories():
+            self.db.categories.update_one({'id':record['id']},{'$setOnInsert':record},upsert=True)
         sellers, listings = seed_data()
         # setOnInsert preserves published inventory and checkout state on restarts.
         for seller in sellers:
             self.db.sellers.update_one({'id':seller.id}, {'$setOnInsert':seller.model_dump(mode='json')}, upsert=True)
         for listing in listings:
             self.db.listings.update_one({'id':listing.id}, {'$setOnInsert':listing.model_dump(mode='json')}, upsert=True)
+
+    def categories(self):
+        return list(self.db.categories.find({}, {'_id':0}).sort('name',1))
+
+    def add_category(self,name):
+        from pymongo.errors import DuplicateKeyError
+        record=category_record(name)
+        try: self.db.categories.update_one({'normalized_name':record['normalized_name']},{'$setOnInsert':record},upsert=True)
+        except DuplicateKeyError: pass
+        return self.db.categories.find_one({'normalized_name':record['normalized_name']},{'_id':0})
+
+    def get_bundle(self,bid):
+        bundle=self.db.bundles.find_one({'id':bid},{'_id':0})
+        if not bundle: raise StoreError(404,'Bundle not found. Start a fresh search.')
+        return bundle
+
+    def get_order(self,oid):
+        order=self.db.orders.find_one({'id':oid},{'_id':0})
+        if not order: raise StoreError(404,'Reservation not found.')
+        return order
+
+    def order_for_bundle(self,bid):
+        return self.db.orders.find_one({'bundle_id':bid},{'_id':0})
 
     def sellers(self):
         return {s['id']:Seller(**s) for s in self.db.sellers.find({}, {'_id':0})}

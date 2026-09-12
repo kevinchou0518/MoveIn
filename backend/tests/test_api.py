@@ -26,6 +26,8 @@ def test_end_to_end_checkout_delivery_and_persistence(api):
     bundles=response.json()['bundles']
     assert len(bundles)==3
     selected=bundles[0]
+    reward=selected['reward_breakdown']
+    assert round(reward['base']+reward['distance']+reward['stops_fee'],2)==selected['delivery_fee']
     path=f"/bundles/{selected['id']}/checkout"
     order=client.post(path)
     assert order.status_code == 201
@@ -101,4 +103,4 @@ def test_health_no_results_and_ai_unavailable(api):
     result=client.post('/bundles/generate',json={**REQUEST,'budget':1})
     assert result.status_code==200 and result.json()['bundles']==[]
     assert result.json()['message']
-    assert client.post('/listings/analyze').status_code==503
+    assert client.post('/listings/analyze').status_code==422

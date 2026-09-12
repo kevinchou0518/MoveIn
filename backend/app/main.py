@@ -4,27 +4,47 @@ import os
 from pathlib import Path
 from uuid import uuid4
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, UploadFile
+from fastapi import FastAPI, HTTPException, Request, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
 from pymongo.errors import PyMongoError
 from app.db.store import LocalStore, MongoStore, StoreError
-from app.schemas import BundleRequest, Category, Listing, ListingCreate, Seller, SellerCreate, utcnow
+from app.schemas import BundleRequest, Category, Listing, ListingCreate, Seller, SellerCreate, Location, utcnow
+from app.services.ai_service import AnalysisRequest, AnalysisResult, GrokService
 from app.services.bundle_service import generate_bundles
 from app.services.route_optimizer import MapProvider
+from app.services.geocoding import Geocoder
+from app.catalog import CategoryCreate, ensure_categories
+from app.services.discovery_ai import DiscoveryAI, ParseRequest, ResearchRequest
+from app.services.swaps import alternatives
+from app.schemas import Model
+from pydantic import Field
+
+class SwapRequest(Model):
+    listing_id: str = Field(min_length=1,max_length=100)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT.parent / '.env')
 
 
-def create_app(store=None, provider=None, uploads_dir=None):
+def create_app(store=None, provider=None, uploads_dir=None, ai_service=None, geocoder=None, discovery_ai=None):
     uploads = Path(uploads_dir) if uploads_dir else ROOT / 'uploads'
     uploads.mkdir(parents=True, exist_ok=True)
 
     @asynccontextmanager
     async def lifespan(app):
+        uri = os.getenv('MONGODB_URI', '')
+        if store is None and uri and not uri.startswith(('mongodb://', 'mongodb+srv://')):
+            raise RuntimeError('MONGODB_URI must be a MongoDB database connection string beginning with mongodb:// or mongodb+srv://.')
+        app.state.geocoder = geocoder or Geocoder(os.getenv('MAPBOX_ACCESS_TOKEN', ''))
+        app.state.discovery = discovery_ai or DiscoveryAI(
+            os.getenv('GROK_API_KEY', ''),
+            os.getenv('GROK_RESEARCH_MODEL') or os.getenv('GROK_MODEL') or 'grok-4.6',
+        )
+        app.state.ai = ai_service or GrokService(os.getenv('GROK_API_KEY', ''), os.getenv('GROK_MODEL') or 'grok-4.6')
         app.state.store = store or (MongoStore(os.environ['MONGODB_URI'], os.getenv('MONGODB_DB', 'snackoverflow'))
                                     if os.getenv('MONGODB_URI') else LocalStore(Path(os.getenv('DEMO_DATA_PATH', ROOT/'data/demo.json'))))
         app.state.provider = provider or MapProvider(os.getenv('MAPBOX_ACCESS_TOKEN', ''))
@@ -50,6 +70,44 @@ def create_app(store=None, provider=None, uploads_dir=None):
         return {'status':'ok', 'storage':request.app.state.store.kind,
                 'routing':'mapbox' if request.app.state.provider.token else 'estimated'}
 
+    @app.get('/locations/search', response_model=list[Location])
+    def search_locations(request: Request, q: str = Query(min_length=3, max_length=200)):
+        if len(q.strip()) < 3:
+            raise HTTPException(422, 'Enter at least three characters of an address or neighborhood.')
+        return request.app.state.geocoder.search(q.strip())
+
+    @app.get('/categories')
+    def categories(request: Request):
+        return request.app.state.store.categories()
+
+    @app.post('/categories', status_code=201)
+    def add_category(payload: CategoryCreate, request: Request):
+        return request.app.state.store.add_category(payload.name)
+
+    @app.post('/buyer/parse')
+    def parse_buyer(payload: ParseRequest, request: Request):
+        return request.app.state.discovery.parse(payload,request.app.state.store.categories())
+
+    @app.post('/listings/research-price')
+    def research_price(payload: ResearchRequest, request: Request):
+        ensure_categories([payload.category],request.app.state.store)
+        return request.app.state.discovery.research(payload)
+
+    @app.get('/bundles/{bundle_id}')
+    def get_bundle(bundle_id: str, request: Request):
+        store=request.app.state.store
+        result=store.get_bundle(bundle_id)
+        order=store.order_for_bundle(bundle_id)
+        return {**result,'order_id':order['id'] if order else None}
+
+    @app.get('/orders/{order_id}')
+    def get_order(order_id: str, request: Request):
+        return request.app.state.store.get_order(order_id)
+
+    @app.post('/bundles/{bundle_id}/alternatives')
+    def swap(bundle_id: str, payload: SwapRequest, request: Request):
+        return alternatives(request.app.state.store,bundle_id,payload.listing_id,request.app.state.provider)
+
     @app.get('/sellers')
     def sellers(request: Request):
         return [s.public() for s in request.app.state.store.sellers().values()]
@@ -68,6 +126,7 @@ def create_app(store=None, provider=None, uploads_dir=None):
 
     @app.post('/listings', status_code=201)
     def add_listing(payload: ListingCreate, request: Request):
+        ensure_categories([payload.category],request.app.state.store)
         seller = request.app.state.store.sellers().get(payload.seller_id)
         if not seller:
             raise HTTPException(404, 'Seller not found. Choose or create a seller profile.')
@@ -95,13 +154,14 @@ def create_app(store=None, provider=None, uploads_dir=None):
             raise HTTPException(415, 'This photo could not be read. Use a JPEG, PNG, or WebP image.')
         return {'image_url':f'/uploads/{filename}'}
 
-    @app.post('/listings/analyze')
-    def analyze():
-        raise HTTPException(503, 'AI analysis is planned for P1. You can enter and publish all listing details manually.')
+    @app.post('/listings/analyze', response_model=AnalysisResult)
+    def analyze(payload: AnalysisRequest, request: Request):
+        return request.app.state.ai.analyze(payload, uploads, request.app.state.store.categories())
 
     @app.post('/bundles/generate')
     def generate(payload: BundleRequest, request: Request):
         db = request.app.state.store
+        ensure_categories(payload.categories,db)
         result = generate_bundles(db.listings(), db.sellers(), payload, request.app.state.provider)
         db.save_bundles(result['bundles'])
         return result

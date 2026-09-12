@@ -1,6 +1,5 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from enum import StrEnum
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -13,14 +12,8 @@ class Model(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False, str_strip_whitespace=True)
 
 
-class Category(StrEnum):
-    tv = 'tv'
-    tv_stand = 'tv_stand'
-    desk = 'desk'
-    chair = 'chair'
-    sofa = 'sofa'
-    table = 'table'
-
+Category = Annotated[str, Field(min_length=1, max_length=80, pattern=r'^[a-z0-9_]+$')]
+Ranking = Literal['balanced', 'lowest_cost', 'best_condition', 'fastest_trip']
 
 class Location(Model):
     lat: float = Field(ge=-90, le=90)
@@ -102,6 +95,7 @@ class BundleRequest(Model):
     budget: Money = Field(gt=0)
     buyer_has_car: bool
     buyer_location: Location
+    ranking: Ranking = 'balanced'
     radius_miles: float = Field(default=25, gt=0, le=100)
 
     @field_validator('categories', mode='before')

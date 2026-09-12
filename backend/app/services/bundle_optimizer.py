@@ -3,12 +3,15 @@ from app.schemas import BundleRequest, Listing, Seller
 from app.services.candidate_filter import miles
 
 
+def item_weight(item, request, balanced=False):
+    mode='balanced' if balanced else request.ranking
+    return (round(item.condition_score*1000/len(request.categories)*(2 if mode=='best_condition' else 1))
+            - round(item.price_cents*.08*(2 if mode=='lowest_cost' else 1))
+            - round(miles(item.location,request.buyer_location)*50*(2 if mode=='fastest_trip' else 1)))
+
+
 def selection_score(items: list[Listing], request: BundleRequest) -> int:
-    # Hundredth-point units: condition × 10; price × -0.08;
-    # seller count × -3; summed buyer distance × -0.5.
-    n = len(request.categories)
-    return sum(round(i.condition_score*1000/n) - round(i.price_cents*0.08)
-               - round(miles(i.location, request.buyer_location)*50) for i in items) - 300*len({i.seller_id for i in items})
+    return sum(item_weight(i,request,balanced=True) for i in items)-300*len({i.seller_id for i in items})
 
 
 def optimize_bundles(items: list[Listing], sellers: dict[str, Seller], request: BundleRequest, limit: int = 10):
@@ -36,9 +39,7 @@ def optimize_bundles(items: list[Listing], sellers: dict[str, Seller], request: 
         if not leads:
             return [], 'no_driver'
         model.add(sum(leads) == 1)
-    n = len(request.categories)
-    weights = [round(i.condition_score*1000/n) - round(i.price_cents*0.08)
-               - round(miles(i.location, request.buyer_location)*50) for i in items]
+    weights = [item_weight(i,request) for i in items]
     model.maximize(sum(x*w for x, w in zip(chosen, weights)) - 300*sum(represented.values()))
     solver = cp_model.CpSolver()
     solver.parameters.num_search_workers = 1
